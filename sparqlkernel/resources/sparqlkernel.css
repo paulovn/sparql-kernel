@@ -1,0 +1,49 @@
+/* ------------------------------------------------------------------------- */
+/* Styles for the SPARQL kernel */
+
+
+/* Messages from magics */
+div.krn-spql div.magic { 
+    color: maroon;
+    font-style: italic;
+    margin-top: 3px;
+}
+div.krn-spql div.magic-help { 
+    color: maroon;
+    font-family: DejaVu Sans Mono, Courier New, Courier, Monospace;
+    margin-top: 3px;
+}
+
+
+/* Table output */
+div.krn-spql table { border: 1px solid black;
+                     border-collapse: collapse; }
+div.krn-spql table tr.hdr  { background-color: LightGray; }
+div.krn-spql table tr.odd  { background-color: Ivory; }
+div.krn-spql table tr.even { background-color: AliceBlue; }
+div.krn-spql table td.even {
+    font-style: italic;
+    color: gray;
+    font-family: Georgia, Times New Roman, Times Roman, serif;
+}
+
+
+/* Table info output */
+div.krn-spql div.tinfo {
+    color: maroon;
+    font-style: italic;
+    margin-top: 3px;
+}
+
+
+/* Error output */
+div.krn-spql div.error {
+    text-align: left;
+    padding: 2px;
+    margin: 2px; border: 1px solid red;
+    font-family: DejaVu Sans Mono, Courier New, Courier, Monospace;
+}
+div.krn-spql div.error span.title { 
+    color: red; font-weight: bold;
+}
+/* ------------------------------------------------------------------------- */
