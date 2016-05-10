@@ -86,7 +86,7 @@ class SparqlKernel(Kernel):
         Initialize the object
         """
         # Define logging, before calling parent constructor
-        set_logging()
+        set_logging( level='DEBUG' )
         # Initialize parent class
         super(SparqlKernel, self).__init__(**kwargs)
         # Define our own logger, different from parent's (self.log)

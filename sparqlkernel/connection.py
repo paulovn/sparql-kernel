@@ -43,7 +43,7 @@ magics = {
     '%graph' :    [ 'uri', 'set default graph for the queries' ],
     '%lang' :     [ '<lang> [...] | default | all', 
                     'languages preferred for labels' ],
-    '%display' :  [ 'table | raw | diagram [svg|png] | table [withtypes]', 
+    '%display' :  [ 'raw | table [withtypes] | diagram [svg|png]', 
                     'set display format' ],
     '%format' :   [ 'JSON | N3 | default', 'set requested result format' ],
     '%show' :     [ '<n> | all', 

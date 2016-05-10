@@ -51,7 +51,7 @@ LOGCONFIG = {
 
 # ----------------------------------------------------------------------
 
-def set_logging( logfilename=None ):
+def set_logging( logfilename=None, level=None ):
     """
     Set a logging configuration, with a rolling file appender.
     If passed a filename, use it as the logfile, else use a default name
@@ -60,6 +60,10 @@ def set_logging( logfilename=None ):
         logdir = os.environ.get( 'LOGDIR', tempfile.gettempdir() )
         basename = __name__.split('.')[-2]
         logfilename = os.path.join( logdir, basename + '.log' )
-
     LOGCONFIG['handlers']['default']['filename'] = logfilename
+
+    if level is not None:
+        LOGCONFIG['loggers']['sparqlkernel.kernel']['level'] = level
+        LOGCONFIG['loggers']['sparqlkernel.connection']['level'] = level
+
     dictConfig( LOGCONFIG )
