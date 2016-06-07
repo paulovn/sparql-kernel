@@ -17,7 +17,7 @@ from jupyter_client.kernelspecapp  import InstallKernelSpec, RemoveKernelSpec
 from IPython.utils.path import ensure_dir_exists
 from IPython.utils.tempdir import TemporaryDirectory
 
-from .constants import __version__, DISPLAY_NAME, LANGUAGE
+from .constants import __version__, KERNEL_NAME, DISPLAY_NAME, LANGUAGE
 
 PKGNAME = os.path.basename( os.path.dirname(__file__) )
 
@@ -28,12 +28,7 @@ kernel_json = {
 	     "-m", PKGNAME, 
 	     "-f", "{connection_file}"],
     "display_name": DISPLAY_NAME,
-    "name": "aiml_chatbot",
-    "language_info": { "name": LANGUAGE },
-    "codemirror_mode":  {
-        "version": 2,
-	"name": "sparql"
-    }
+    "name": KERNEL_NAME
 }
 
 
@@ -136,7 +131,7 @@ class SparqlKernelInstall( InstallKernelSpec ):
     """
 
     version = __version__
-    kernel_name = PKGNAME
+    kernel_name = KERNEL_NAME
     description = '''Install the AIML Chatbot Kernel
     Either as a system kernel or for a concrete user'''
 

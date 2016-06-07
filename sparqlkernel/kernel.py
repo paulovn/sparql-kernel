@@ -58,10 +58,13 @@ class SparqlKernel(Kernel):
     # Kernel info
     implementation = 'SPARQL'
     implementation_version = __version__
+    banner = "SPARQL kernel"
     language = LANGUAGE
     language_version = '1.1'
-    language_info = { 'name': 'sparql', 'mimetype': 'application/sparql-query'}
-    banner = "SPARQL kernel"
+    language_info = { 'name': 'sparql', 
+                      'mimetype': 'application/sparql-query',
+                      "codemirror_mode":  { "name": "sparql" }
+                    }
 
     # Add some items to notebook help menu
     help_links = List([

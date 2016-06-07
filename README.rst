@@ -44,7 +44,8 @@ The kernel can be uninstalled from Jupyter via ``jupyter sparqlkernel remove``
 Note that kernel installation also installs some custom CSS; its purpose is to
 improve the layout of the kernel results as they are presented in the notebook
 (but it also means that the rendered notebook will look slightly different in a
-Jupyter deployment in which the kernel has not been installed).
+Jupyter deployment in which the kernel has not been installed, or within an
+online viewer).
 
 
 Syntax
@@ -81,19 +82,19 @@ A number of line magics (lines starting with ``%``) can be used to control the
 kernel behaviour. These line magics must be placed at the start of the cell, 
 and there can be more than one per cell.
 Valid combinations are thus:
-  * a cell with only a SPARQL query,
-  * a cell consisting only of magics,
-  * and a cell containing both magics and then a SPARQL query (but after the 
-    first SPARQL keyword the cell is assumed to be in SPARQL mode, and line 
-    magics will *not* be recognized as such).
+* a cell with only a SPARQL query,
+* a cell consisting only of magics,
+* and a cell containing both magics and then a SPARQL query (but after the 
+  first SPARQL keyword the cell is assumed to be in SPARQL mode, and line 
+  magics will *not* be recognized as such).
 
-Comment lines (lines starting with `#`) can be freely interspersed between 
+Comment lines (lines starting with ``#``) can be freely interspersed between 
 line magics or SPARQL queries.
 
 Magics also feature autocompletion and contextual help. Furthermore, there is 
 a spacial magic ``%lsmagics``; when executed on a cell it will output the list 
 of all currently available magics. The same info can be obtained by requesting
-contextual help (i.e. Shift-TAB) on a line containing only a percent sign).
+contextual help (i.e. Shift-TAB) on a line containing only a percent sign.
 
 A few of the most relevant magics are explained in the following sections. The 
 complete set is always available in the notebook, by using the help or 
@@ -103,7 +104,7 @@ autocompletion features.
 ``%endpoint``
 .............
 
-This magic is special in the sense that is compulsory: there needs to be an 
+This magic is special in the sense that it is compulsory: there needs to be an 
 endpoint defined _before_ the first SPARQL query is launched, otherwise the 
 query will fail.
 
@@ -112,7 +113,7 @@ Its syntax is::
     %endpoint <url>
 
 and it simply defines the SPARQL endpoint for all subsequent queries. 
-It remains active until superceded by another `%endpoint` magic.
+It remains active until superceded by another ``%endpoint`` magic.
 
 
 ``%display``
@@ -123,16 +124,16 @@ Sets the output format::
     %display raw | table [withtypes] | diagram [svg|png]
 
 There are three possible display formats:
- * ``raw`` outputs the literal text returned by the SPARQL endpoint, in the
-   format that was requested (see ``%format`` magic)
- * ``table`` generates a table with the result. The optional ``withtypes``
-   modifier adds to each column an additional column that shows the data
-   type for each value
- * ``diagram`` takes the RDF graph returned (makes sense only for N3 result
-   format) and generates an image with a rendering of the graph. For it to
-   work, the ``dot`` program from GraphViz must be available in the search path.
-   The modifier selects the image format. Default is SVG, which usually works
-   much better (PNG typically generates too small images)
+* ``raw`` outputs the literal text returned by the SPARQL endpoint, in the
+  format that was requested (see ``%format`` magic)
+* ``table`` generates a table with the result. The optional ``withtypes``
+  modifier adds to each column an additional column that shows the data
+  type for each value
+* ``diagram`` takes the RDF graph returned (makes sense only for N3 result
+  format) and generates an image with a rendering of the graph. For it to
+  work, the ``dot`` program from GraphViz must be available in the search path.
+  The modifier selects the image format. Default is SVG, which usually works
+  much better (PNG typically generates too small images)
 
 
 
