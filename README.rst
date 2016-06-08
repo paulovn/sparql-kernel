@@ -82,6 +82,7 @@ A number of line magics (lines starting with ``%``) can be used to control the
 kernel behaviour. These line magics must be placed at the start of the cell, 
 and there can be more than one per cell.
 Valid combinations are thus:
+
 * a cell with only a SPARQL query,
 * a cell consisting only of magics,
 * and a cell containing both magics and then a SPARQL query (but after the 
@@ -124,6 +125,7 @@ Sets the output format::
     %display raw | table [withtypes] | diagram [svg|png]
 
 There are three possible display formats:
+
 * ``raw`` outputs the literal text returned by the SPARQL endpoint, in the
   format that was requested (see ``%format`` magic)
 * ``table`` generates a table with the result. The optional ``withtypes``
