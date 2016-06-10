@@ -21,10 +21,18 @@ div.krn-spql table { border: 1px solid black;
 div.krn-spql table tr.hdr  { background-color: LightGray; }
 div.krn-spql table tr.odd  { background-color: Ivory; }
 div.krn-spql table tr.even { background-color: AliceBlue; }
-div.krn-spql table td.even {
+div.krn-spql table td.typ  {
     font-style: italic;
     color: gray;
     font-family: Georgia, Times New Roman, Times Roman, serif;
+}
+
+div.krn-spql table td.val a  {
+    text-decoration: none;
+}
+
+div.krn-spql table td.val a:hover  {
+    text-decoration: underline;
 }
 
 
