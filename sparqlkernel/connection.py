@@ -27,8 +27,11 @@ from .drawgraph import draw_graph
 # IPython.core.display.HTML
 
 
-mime_type = { SPARQLWrapper.JSON :  ['application/sparql-results+json'],
-              SPARQLWrapper.N3 :    ['text/rdf+n3'],
+# Valid mime types (depending of what we want)
+mime_type = { SPARQLWrapper.JSON :  ['application/sparql-results+json',
+                                     'text/javascript'],
+              SPARQLWrapper.N3 :    ['text/rdf+n3', 
+                                     'text/turtle', 'application/x-turtle'],
               SPARQLWrapper.RDF :   ['text/rdf'],
               SPARQLWrapper.TURTLE: ['text/turtle', 'application/x-turtle'],
               SPARQLWrapper.XML :   ['application/sparql-results+xml'],
@@ -199,7 +202,17 @@ def render_json( result, cfg, **kwargs ):
     """
     if cfg.out:
         save_to_file( json.dumps(result,encoding='utf-8'), cfg.out )
-    vars = result['head']['vars']
+
+    head = result['head']
+    if 'results' not in result:
+        if 'boolean' in result:
+            r = 'Result: {}'.format(result['boolean'])
+        else:
+            r = 'unsupported result: \n' + unicode(result)
+        return { 'data' : { 'text/plain' : r },
+                 'metadata' : {} }
+
+    vars = head['vars']
     nrow = len( result['results']['bindings'] )
     if cfg.dis == 'table':
         j = json_iterator( vars, result['results']['bindings'], 
@@ -410,7 +423,7 @@ class SparqlConnection( object ):
                 res = self.srv.query()
                 # Check we received the MIME type we expect
                 expected = set( mime_type[fmt] )
-                info = res.info() 
+                info = res.info()
                 self.log.debug( u"Response info: %s", info )
                 got = info['content-type'].split(';')[0]
                 if got not in expected:
