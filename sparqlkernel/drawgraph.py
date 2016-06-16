@@ -187,7 +187,7 @@ def rdf2dot( g, stream, opts={} ):
         # If this triple points to another node, create a link
         if isinstance( o, (rdflib.URIRef,rdflib.BNode) ):
             on = node(o)
-            opstr = u'\t%s -> %s [ arrowhead="open", color="#9FC9E5", fontsize=10, fontcolor="#204080", label="%s" ] ;\n'
+            opstr = u'\t%s -> %s [ arrowhead="open", color="#9FC9E560", fontsize=10, fontcolor="#204080", label="%s" ] ;\n'
             stream.write( opstr % (sn, on, qname(p,g)) )
 
     # Write all nodes
