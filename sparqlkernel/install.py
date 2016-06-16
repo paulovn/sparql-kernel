@@ -132,7 +132,7 @@ class SparqlKernelInstall( InstallKernelSpec ):
 
     version = __version__
     kernel_name = KERNEL_NAME
-    description = '''Install the AIML Chatbot Kernel
+    description = '''Install the SPARQL Jupyter Kernel
     Either as a system kernel or for a concrete user'''
 
     def parse_command_line(self, argv):
@@ -148,7 +148,7 @@ class SparqlKernelInstall( InstallKernelSpec ):
             self.exit("Can't specify both user and prefix. Please choose one or\
  the other.")
 
-        self.log.info('Installing AIML chatbot kernel')
+        self.log.info('Installing SPARQL kernel')
         with TemporaryDirectory() as td:
             os.chmod(td, 0o755) # Starts off as 700, not user readable
             # Add kernel spec
@@ -193,8 +193,8 @@ class SparqlKernelRemove( RemoveKernelSpec ):
     The kernel uninstallation class
     """
 
-    spec_names = [ PKGNAME ]
-    description = '''Remove the AIML Chatbot Kernel'''
+    spec_names = [ KERNEL_NAME ]
+    description = '''Remove the SPARQL Jupyter Kernel'''
 
     def parse_command_line(self, argv):
         """

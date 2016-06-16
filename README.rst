@@ -32,20 +32,29 @@ The installation process requires two steps:
 
 1. Install the Python package::
 
-     pip install https://github.com/paulovn/sparq-kernel/archive/master.zip
+     pip install https://github.com/paulovn/sparql-kernel/archive/master.zip
 
 2. Install the kernel into Jupyter::
 
      jupyter sparqlkernel install [--user]
 
 
-The kernel can be uninstalled from Jupyter via ``jupyter sparqlkernel remove``
+The `--user` option will install the kernel in the current user's personal
+config, while the generic command will install it as a global kernel (but
+needs write permissions in the system directories).
 
 Note that kernel installation also installs some custom CSS; its purpose is to
 improve the layout of the kernel results as they are presented in the notebook
 (but it also means that the rendered notebook will look slightly different in a
 Jupyter deployment in which the kernel has not been installed, or within an
 online viewer).
+
+To uninstall, perform the inverse operations (in reverse order), to uninstall
+the kernel from Jupyter and to remove the Python package:
+
+     jupyter sparqlkernel remove
+     pip uninstall sparqlkernel
+
 
 
 Syntax
@@ -93,7 +102,7 @@ Comment lines (lines starting with ``#``) can be freely interspersed between
 line magics or SPARQL queries.
 
 Magics also feature autocompletion and contextual help. Furthermore, there is 
-a spacial magic ``%lsmagics``; when executed on a cell it will output the list 
+a special magic ``%lsmagics``; when executed on a cell it will output the list 
 of all currently available magics. The same info can be obtained by requesting
 contextual help (i.e. Shift-TAB) on a line containing only a percent sign.
 
@@ -106,7 +115,7 @@ autocompletion features.
 .............
 
 This magic is special in the sense that it is compulsory: there needs to be an 
-endpoint defined _before_ the first SPARQL query is launched, otherwise the 
+endpoint defined *before* the first SPARQL query is launched, otherwise the 
 query will fail.
 
 Its syntax is::
@@ -117,10 +126,21 @@ and it simply defines the SPARQL endpoint for all subsequent queries.
 It remains active until superceded by another ``%endpoint`` magic.
 
 
+``%format``
+............
+
+Sets the data format requested to the SPARQL endpoint::
+
+    %format JSON | N3 | default
+
+where `default` selects a default format depending on the requested SPARQL
+operation (N3 for `DESCRIBE` and `CONSTRUCT`, JSON for `SELECT`).
+
+
 ``%display``
 ............
 
-Sets the output format::
+Sets the output rendering shape::
 
     %display raw | table [withtypes] | diagram [svg|png]
 
