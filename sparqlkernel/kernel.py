@@ -88,11 +88,11 @@ class SparqlKernel(Kernel):
         """
         Initialize the object
         """
-        # Define logging, before calling parent constructor
-        set_logging( level='DEBUG' )
+        # Define logging status before calling parent constructor
+        set_logging( level='WARN' )
         # Initialize parent class
         super(SparqlKernel, self).__init__(**kwargs)
-        # Define our own logger, different from parent's (self.log)
+        # Define our own logger, different from parent's (i.e. self.log)
         self._klog = logging.getLogger( __name__ )
         self._klog.info( 'START' )
         # Create the object holding the SPARQL connections

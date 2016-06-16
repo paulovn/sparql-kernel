@@ -184,7 +184,7 @@ def rdf2dot( g, stream, opts={} ):
         sn = node(s)
         if p == rdflib.RDFS.label:
             continue
-        # If this triple is between two nodes, create a link
+        # If this triple points to another node, create a link
         if isinstance( o, (rdflib.URIRef,rdflib.BNode) ):
             on = node(o)
             opstr = u'\t%s -> %s [ arrowhead="open", color="#9FC9E5", fontsize=10, fontcolor="#204080", label="%s" ] ;\n'

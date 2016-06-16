@@ -27,14 +27,10 @@ LOGCONFIG = {
         },
 
     'loggers' : { 
-                  # loggers for sparqlkernel modules
-                  'sparqlkernel.kernel' : { 'level' : 'INFO',
-                                            'propagate' : False,
-                                            'handlers' : ['default'] },
-
-                  'sparqlkernel.connection' : { 'level' : 'INFO',
-                                                'propagate' : False,
-                                                'handlers' : ['default'] },
+                  # the parent logger for sparqlkernel modules
+                  'sparqlkernel' : { 'level' : 'INFO',
+                                     'propagate' : False,
+                                     'handlers' : ['default'] },
 
                   # This is the logger for the base kernel app
                   'IPKernelApp' : { 'level' : 'INFO',
@@ -54,7 +50,11 @@ LOGCONFIG = {
 def set_logging( logfilename=None, level=None ):
     """
     Set a logging configuration, with a rolling file appender.
-    If passed a filename, use it as the logfile, else use a default name
+    If passed a filename, use it as the logfile, else use a default name.
+
+    The default logfile is \c sparqlkernel.log, placed in the directory given
+    by the \c LOGDIR environment variable or, if that is not defined, 
+    in the default temporal directory
     """
     if logfilename is None:
         logdir = os.environ.get( 'LOGDIR', tempfile.gettempdir() )
@@ -63,7 +63,6 @@ def set_logging( logfilename=None, level=None ):
     LOGCONFIG['handlers']['default']['filename'] = logfilename
 
     if level is not None:
-        LOGCONFIG['loggers']['sparqlkernel.kernel']['level'] = level
-        LOGCONFIG['loggers']['sparqlkernel.connection']['level'] = level
+        LOGCONFIG['loggers']['sparqlkernel']['level'] = level
 
     dictConfig( LOGCONFIG )

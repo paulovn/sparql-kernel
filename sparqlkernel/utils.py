@@ -2,6 +2,9 @@
 Miscellaneous utility functions
 """
 
+import logging
+LOG = logging.getLogger( __name__ )
+
 # Default wrapping class for an output message
 HTML_DIV_CLASS = 'krn-spql'
 
@@ -63,7 +66,7 @@ def div( txt, *args, **kwargs ):
 
 def data_msg( msglist ):
     """
-    Return a kernel message, in both HTML & text formats, but putting together
+    Return a kernel message, in both HTML & text formats, by putting together
     all passed messages
       @param msglist (iterable): an iterable containing tuples (message, css)
     """
@@ -82,17 +85,20 @@ def data_msg( msglist ):
 
 class KrnlException( Exception ):
     """
-    An exception for kernel errors. Will generate a Jupyter message
-    to be sent to the frontend
+    An exception for kernel errors. 
+
+    When called as a function, it will generate a Jupyter message
+    to be sent to the frontend.
     """
     def __init__(self, msg, *args):
-        if len(msg):
+        if len(args):
             msg = msg.format(*args)
         super(KrnlException,self).__init__(msg)
+        LOG.warn( 'KrnlException: %s', self, exc_info=1 )
 
     def __call__(self):
         """
-        When called as a function, it generates a Jupyter data message
+        Generate a Jupyter data message
         """
         html = div( div('<span class="title">Error:</span> ' + 
                         self.args[0].replace('\n','<br/>'), css="error" ) )
