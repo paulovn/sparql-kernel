@@ -36,12 +36,16 @@ The installation process requires two steps:
 
 2. Install the kernel into Jupyter::
 
-     jupyter sparqlkernel install [--user]
+     jupyter sparqlkernel install [--user] [--logdir <dir>]
 
 
 The `--user` option will install the kernel in the current user's personal
 config, while the generic command will install it as a global kernel (but
 needs write permissions in the system directories).
+
+Additionally, the `--logdir <dir>` option will define the default directory to
+use for logfiles (it can be overriden when executing the kernel by defining
+the `LOGDIR` environment variable).
 
 Note that kernel installation also installs some custom CSS; its purpose is to
 improve the layout of the kernel results as they are presented in the notebook

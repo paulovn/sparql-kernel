@@ -382,7 +382,7 @@ class SparqlConnection( object ):
             try:
                 l = param.upper()
                 parent_logger = logging.getLogger( __name__.rsplit('.',1)[0] )
-                parent_logger.error( '[%s][%s]', __name__,  __name__.rsplit('.',1)[0] )
+                #parent_logger.error( '[%s][%s]', __name__,  __name__.rsplit('.',1)[0] )
                 parent_logger.setLevel( l )
                 return ("Logging set to {}", l), 'magic'
             except ValueError:

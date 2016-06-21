@@ -11,8 +11,10 @@ import os
 import os.path
 import json
 import pkgutil
+import tempfile
 
 from jupyter_client.kernelspecapp  import InstallKernelSpec, RemoveKernelSpec
+from traitlets import Unicode
 
 from IPython.utils.path import ensure_dir_exists
 from IPython.utils.tempdir import TemporaryDirectory
@@ -132,8 +134,14 @@ class SparqlKernelInstall( InstallKernelSpec ):
 
     version = __version__
     kernel_name = KERNEL_NAME
-    description = '''Install the SPARQL Jupyter Kernel
+    description = '''Install the SPARQL Jupyter Kernel.
     Either as a system kernel or for a concrete user'''
+
+    logdir = Unicode( os.environ.get('LOGDIR', ''),
+        config=True,
+        help="""Default directory to use for the logfile."""
+    )
+    aliases =  { 'logdir' : 'SparqlKernelInstall.logdir' } 
 
     def parse_command_line(self, argv):
         """
@@ -152,6 +160,8 @@ class SparqlKernelInstall( InstallKernelSpec ):
         with TemporaryDirectory() as td:
             os.chmod(td, 0o755) # Starts off as 700, not user readable
             # Add kernel spec
+            if len(self.logdir):
+                kernel_json['env'] = { 'LOGDIR_DEFAULT' : self.logdir }
             with open(os.path.join(td, 'kernel.json'), 'w') as f:
                 json.dump(kernel_json, f, sort_keys=True)
             # Add resources
