@@ -1,5 +1,5 @@
 
-__version__ = '0.1'
+__version__ = '0.9'
 
 KERNEL_NAME = 'sparql'
 LANGUAGE = 'sparql'

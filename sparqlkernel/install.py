@@ -11,7 +11,6 @@ import os
 import os.path
 import json
 import pkgutil
-import tempfile
 
 from jupyter_client.kernelspecapp  import InstallKernelSpec, RemoveKernelSpec
 from traitlets import Unicode
@@ -21,7 +20,8 @@ from IPython.utils.tempdir import TemporaryDirectory
 
 from .constants import __version__, KERNEL_NAME, DISPLAY_NAME, LANGUAGE
 
-PKGNAME = os.path.basename( os.path.dirname(__file__) )
+MODULEDIR = os.path.dirname(__file__)
+PKGNAME = os.path.basename( MODULEDIR )
 
 
 # The kernel specfile
@@ -34,8 +34,12 @@ kernel_json = {
 }
 
 
-
 # --------------------------------------------------------------------------
+
+def css_frame_prefix( name ):
+    '''Define the comment prefix used in custom css to frame kernel CSS'''
+    return '/* @{{KERNEL}} {} '.format(name)
+
 
 def copyresource( resource, filename, destdir ):
     """
@@ -60,30 +64,28 @@ def install_kernel_resources( destdir, resource=PKGNAME, files=None ):
             sys.stderr.write(str(e))
 
 
-def install_custom_css(destdir, cssfile, resource=PKGNAME ):
+def install_custom_css( destdir, cssfile, resource=PKGNAME ):
     """
     Install the kernel CSS file and include it within custom.css
     """
-    # Copy it
     ensure_dir_exists( destdir )
-    cssfile += '.css'
-    copyresource( resource, cssfile, destdir )
+    prefix = css_frame_prefix(resource)
 
     # Check if custom.css already includes it. If so, we can return
-    include = "@import url('{}');".format( cssfile )
     custom = os.path.join( destdir, 'custom.css' )
     if os.path.exists( custom ):
         with open(custom) as f:
             for line in f:
-                if line.find( include ) >= 0:
+                if line.find( prefix ) >= 0:
                     return
 
-    # Add the import line at the beginning of custom.css
-    prefix = '/* KERNEL: {} '.format(resource)
+    # Add the CSS at the beginning of custom.css
+    cssfile += '.css'
+    data = pkgutil.get_data( resource, os.path.join('resources',cssfile) )
     with open(custom + '-new', 'w') as fout:
-        fout.write('{}START --------- */\n'.format(prefix))
-        fout.write( include + '\n' )
-        fout.write('{}END ----------- */\n\n'.format(prefix))
+        fout.write('{}START ======================== */\n'.format(prefix))
+        fout.write( data )
+        fout.write('{}END ======================== */\n'.format(prefix))
         if os.path.exists( custom ):
             with open( custom ) as fin:
                 for line in fin:
@@ -91,34 +93,31 @@ def install_custom_css(destdir, cssfile, resource=PKGNAME ):
     os.rename( custom+'-new',custom)
 
 
-def remove_custom_css(destdir, cssfile, resource=PKGNAME ):
+def remove_custom_css(destdir, resource=PKGNAME ):
     """
     Remove the kernel CSS file and eliminat its include in custom.css
     """
-    fullname = os.path.join( destdir, cssfile )
-    if not fullname.endswith('.css'):
-        fullname += '.css'
-    
-    if not os.path.exists( fullname ):
-        return False
 
     # Remove the inclusion in the main CSS
     custom = os.path.join( destdir, 'custom.css' )
     copy = True
-    prefix = '/* KERNEL: {} '.format(resource)
+    found = False
+    prefix = css_frame_prefix(resource)
     with open(custom + '-new', 'w') as fout:
         with open(custom) as fin:
             for line in fin:
                 if line.startswith( prefix + 'START' ):
                     copy = False
+                    found = True
                 elif line.startswith( prefix + 'END' ):
                     copy = True
                 elif copy:
                     fout.write( line )
-    os.rename( custom+'-new',custom)
 
-    # Remove the CSS file
-    os.remove( fullname )
+    if found:
+        os.rename( custom+'-new',custom)
+    else:
+        os.unlink( custom+'-new')
 
     return True
 
@@ -214,7 +213,7 @@ class SparqlKernelRemove( RemoveKernelSpec ):
         super(RemoveKernelSpec, self).parse_command_line(argv)
 
     def start(self):
-        # Call parent (this one the actual parent) to remove the kernelspec dir
+        # Call parent (this time the real parent) to remove the kernelspec dir
         super(SparqlKernelRemove, self).start()
 
         # Remove the installed custom CSS

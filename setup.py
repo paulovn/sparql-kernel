@@ -17,7 +17,7 @@ PKGNAME = 'sparqlkernel'
 setup_args = dict (
     name=PKGNAME,
     version=__version__,
-    description= 'A Jupyter kernel for SPARQL code',
+    description= 'A Jupyter kernel for SPARQL queries',
     long_description=
 '''This module installs a Jupyter kernel for SPARQL. It allows sending queries
 to an SPARQL endpoint and fetching & presenting the results in a notebook.
