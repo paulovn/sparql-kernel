@@ -13,7 +13,7 @@ class SparqlKernelApp( IPKernelApp ):
     from .install import SparqlKernelInstall, SparqlKernelRemove
     kernel_class = SparqlKernel
 
-    # We override subcommands to add our own install command
+    # We override subcommands to add our own install & remove commands
     subcommands = Dict({                                                        
         'install': (SparqlKernelInstall, 
                     SparqlKernelInstall.description.splitlines()[0]), 
