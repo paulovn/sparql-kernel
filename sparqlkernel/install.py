@@ -11,6 +11,7 @@ import os
 import os.path
 import json
 import pkgutil
+import io
 
 from jupyter_client.kernelspecapp  import InstallKernelSpec, RemoveKernelSpec
 from traitlets import Unicode
@@ -82,10 +83,12 @@ def install_custom_css( destdir, cssfile, resource=PKGNAME ):
     # Add the CSS at the beginning of custom.css
     cssfile += '.css'
     data = pkgutil.get_data( resource, os.path.join('resources',cssfile) )
-    with open(custom + '-new', 'w') as fout:
-        fout.write('{}START ======================== */\n'.format(prefix))
-        fout.write( data )
-        fout.write('{}END ======================== */\n'.format(prefix))
+    with io.open(custom + '-new', 'wt') as fout:
+        fout.write( prefix )
+        fout.write( 'START ======================== */\n')
+        fout.write( data.decode() ) 
+        fout.write( prefix )
+        fout.write( 'END ======================== */\n')
         if os.path.exists( custom ):
             with open( custom ) as fin:
                 for line in fin:
@@ -103,8 +106,8 @@ def remove_custom_css(destdir, resource=PKGNAME ):
     copy = True
     found = False
     prefix = css_frame_prefix(resource)
-    with open(custom + '-new', 'w') as fout:
-        with open(custom) as fin:
+    with io.open(custom + '-new', 'wt') as fout:
+        with io.open(custom) as fin:
             for line in fin:
                 if line.startswith( prefix + 'START' ):
                     copy = False
@@ -151,7 +154,7 @@ class SparqlKernelInstall( InstallKernelSpec ):
 
 
     def start(self):
-	if self.user and self.prefix:
+        if self.user and self.prefix:
             self.exit("Can't specify both user and prefix. Please choose one or\
  the other.")
 
