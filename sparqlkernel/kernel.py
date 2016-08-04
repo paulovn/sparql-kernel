@@ -101,18 +101,29 @@ class SparqlKernel(Kernel):
     # -----------------------------------------------------------------
 
 
-    def _send( self, data, silent=False, status='ok', msg=False ):
+    def _send( self, data, silent=False, status='ok', is_msg=False ):
         """
         Send a response to the frontend and return an execute message
+         @param data: response to send
+         @param silent (bool): suppress output
+         @param status (str): Jupyter status string
+         @param is_msg (bool): if the data contains a message list to be 
+            formatted
+         @return (dict): the return value for the kernel
         """
         # Data to send back
         if data is not None:
+            # log the message
             try:
-                self._klog.debug( "Sending: {}", unicode(data)[:80] )
-            except Exception:
-                self._klog.warn( "can't log response" )
+                self._klog.debug( u"msg to frontend: %.160s...", data )
+            except Exception as e:
+                self._klog.warn( u"can't log response: %s", e )
+            with open( '/tmp/sparql-messages.txt', 'at') as f:
+                f.write( str(data) )
+                f.write('\n\n')
+            # send it to the frontend
             if not silent:
-                if msg:
+                if is_msg:
                     data = data_msg( data )
                 self.send_response(self.iopub_socket, 'display_data', data)
 
@@ -130,7 +141,7 @@ class SparqlKernel(Kernel):
         """
         Method called to execute a cell
         """
-        self._klog.info( "[%s] [%d] [%s]", code[:80], silent, user_expressions )
+        self._klog.info( "[%.30s] [%d] [%s]", code, silent, user_expressions )
 
         # Split lines and remove empty lines & comments 
         code_noc = [ line.strip() for line in code.split('\n') 
@@ -151,11 +162,11 @@ class SparqlKernel(Kernel):
             # Process magics. Once done, remove them from the query buffer
             if magic_lines:
                 out = [ self._k.magic(line) for line in magic_lines ]
-                self._send( out, silent=silent, msg=True )
+                self._send( out, silent=silent, is_msg=True )
                 code = '\n'.join( code_noc[len(magic_lines):] )
 
             # If we have a regular SPARQL query, process it now
-            result = self._k.query( code ) if code else None
+            result = self._k.query( code, num=self.execution_count ) if code else None
 
             # Return the result
             return self._send( result, silent=silent )

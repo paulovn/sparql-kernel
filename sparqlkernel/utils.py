@@ -66,8 +66,9 @@ def div( txt, *args, **kwargs ):
 
 def data_msg( msglist ):
     """
-    Return a kernel message, in both HTML & text formats, by putting together
-    all passed messages
+    Return a Jupyter kernel message, in both HTML & text formats, by putting 
+    together a list of messages. Each message contains text (a single string
+    or a list to be formatted) and a CSS class (for HTML format).
       @param msglist (iterable): an iterable containing tuples (message, css)
     """
     txt = html = u''

@@ -4,20 +4,22 @@ format results for notebook display. Also process all the defined magics
 """
 from __future__ import print_function
 
+import sys
+import io
+import json
+from itertools import chain
+import pprint
+import logging
+from logging.config import dictConfig
+
 from IPython.utils.tokenutil import token_at_cursor, line_at_cursor
 from ipykernel.kernelbase import Kernel
 from traitlets import List
-from itertools import izip, chain
-import logging
-from logging.config import dictConfig
-import json
 
-import logging
-import pprint
-import codecs
 import SPARQLWrapper
 from SPARQLWrapper.SPARQLExceptions import SPARQLWrapperException
-from rdflib import Graph, URIRef, Literal
+from rdflib import ConjunctiveGraph, URIRef, Literal
+from rdflib.parser import StringInputSource
 
 from .constants import __version__, LANGUAGE, DEFAULT_TEXT_LANG
 from .utils import is_collection, KrnlException, div, escape
@@ -26,13 +28,17 @@ from .drawgraph import draw_graph
 
 # IPython.core.display.HTML
 
+PY3 = sys.version_info[0] == 3
+if PY3:
+    unicode = str
 
-# Valid mime types (depending of what we want)
+# Valid mime types in the response (depending of what we requested)
 mime_type = { SPARQLWrapper.JSON :  ['application/sparql-results+json',
                                      'text/javascript'],
-              SPARQLWrapper.N3 :    ['text/rdf+n3', 
-                                     'text/turtle', 'application/x-turtle'],
-              SPARQLWrapper.RDF :   ['text/rdf'],
+              SPARQLWrapper.N3 :    ['text/rdf+n3', 'text/turtle', 
+                                     'application/x-turtle',
+                                     'application/rdf+xml'],
+              SPARQLWrapper.RDF :   ['text/rdf', 'application/rdf+xml'],
               SPARQLWrapper.TURTLE: ['text/turtle', 'application/x-turtle'],
               SPARQLWrapper.XML :   ['application/sparql-results+xml'],
 }
@@ -52,8 +58,9 @@ magics = {
                     'language(s) preferred for labels' ],
     '%show' :     [ '<n> | all',
                     'maximum number of shown results' ],
-    '%outfile' :  [ 'filename', 'save raw output to a file'],
-    '%log' :      [ 'level', 'set logging level'],
+    '%outfile' :  [ '<filename> | NONE', 'save raw output to a file (use "%d" in name to add cell number)'],
+    '%log' :      [ 'critical | error | warning | info | debug', 
+                    'set logging level'],
 }
 
 # The full list of all magics
@@ -65,13 +72,6 @@ magic_help = ('Available magics:\n' +
 
 
 # ----------------------------------------------------------------------
-
-def save_to_file( result, outname ):
-    """
-    Save data to an output file
-    """
-    with open(outname,'w') as f:
-        f.write( result )
 
 
 def html_elem( e, ct, withtype=False ):
@@ -103,7 +103,7 @@ def html_table( data, header=True, limit=None, withtype=False ):
       @param limit (int): maximum number of rows to render (excluding header)
       @param withtype (bool): if columns are to have an alternating CSS class
         (even/odd) or not.
-      @return (int,unicode): a pair number-of-rendered-rows, html-table
+      @return (int,string): a pair <number-of-rendered-rows>, <html-table>
     """
     if header and limit:
         limit += 1
@@ -200,15 +200,13 @@ def render_json( result, cfg, **kwargs ):
     """
     Render for output a result in JSON format
     """
-    if cfg.out:
-        save_to_file( json.dumps(result,encoding='utf-8'), cfg.out )
-
+    result = json.loads( result.decode('utf-8') )
     head = result['head']
     if 'results' not in result:
         if 'boolean' in result:
-            r = 'Result: {}'.format(result['boolean'])
+            r = u'Result: {}'.format(result['boolean'])
         else:
-            r = 'unsupported result: \n' + unicode(result)
+            r = u'Unsupported result: \n' + unicode( result )
         return { 'data' : { 'text/plain' : r },
                  'metadata' : {} }
 
@@ -221,20 +219,32 @@ def render_json( result, cfg, **kwargs ):
         data += div( 'Total: {}, Shown: {}', nrow, n, css="tinfo" )
         data = {'text/html' : div(data) }
     else:
-        data = {'text/plain' : unicode(pprint.pformat(result)) }
+        data = {'text/plain' : unicode( pprint.pformat(result) ) }
     
     return { 'data': data ,
              'metadata' : {} }
 
 
-def render_n3( result, cfg, **kwargs ):
+def render_graph( result, cfg, **kwargs ):
     """
-    Render for output a result in N3 format
+    Render for output a result in graph format
     """
-    g = Graph()
-    g.parse( data=result, format='n3' )
-    if cfg.out:
-        save_to_file( g.serialize(format='nt',encoding='utf-8'), cfg.out )
+
+    rdflib_formats = { 'text/rdf+n3' : 'n3',
+                       'text/turtle' : 'turtle',
+                       'application/x-turtle' : 'turtle',
+                       'text/turtle' : 'turtle',
+                       'application/rdf+xml' : 'xml',
+                       'text/rdf' : 'xml',
+                       'application/rdf+xml' : 'xml',
+                       }
+
+    g = ConjunctiveGraph()
+    g.load( StringInputSource(result), 
+            format=rdflib_formats[kwargs.get('format','n3')] )
+    #if cfg.out:
+    #    save_to_file( g.serialize(format='nt',encoding='utf-8'), cfg.out )
+
 
     if cfg.dis in ('png','svg') :
         try:
@@ -337,7 +347,7 @@ class SparqlConnection( object ):
                 fmt = param.upper()
                 self.cfg.fmt = fmt_list[fmt]
             except KeyError:
-                raise KrnlException( 'unsupported format: {}\nSupported formats are: {!s}', param, fmt_list.keys() )
+                raise KrnlException( 'unsupported format: {}\nSupported formats are: {!s}', param, list(fmt_list.keys()) )
             return ['Return format: {}', fmt], 'magic'
 
         elif cmd == 'lang':
@@ -372,8 +382,12 @@ class SparqlConnection( object ):
 
         elif cmd == 'outfile':
 
-            self.cfg.out = param
-            return [ 'Output file: {}', param ], 'magic'
+            if param == 'NONE':
+                self.cfg.out = None
+                return [ 'no output file' ], 'magic'
+            else:
+                self.cfg.out = param
+                return [ 'Output file: {}', param ], 'magic'
 
         elif cmd == 'log':
 
@@ -392,7 +406,7 @@ class SparqlConnection( object ):
             raise KrnlException( "magic not found: {}", cmd )
 
 
-    def query( self, query, silent=False ):
+    def query( self, query, num=0, silent=False ):
         """
         Launch an SPARQL query, process & convert results and return them
         """
@@ -413,6 +427,7 @@ class SparqlConnection( object ):
         qup = query.upper()
         fmt = self.cfg.fmt if self.cfg.fmt else SPARQLWrapper.N3 if 'DESCRIBE' in qup or 'CONSTRUCT' in qup else SPARQLWrapper.JSON
         self.srv.setReturnFormat( fmt )
+        self.log.debug( u'requested format: %s', fmt )
         if self.cfg.grh:
             self.srv.addParameter("default-graph-uri",self.cfg.grh)
         self.srv.setQuery( query )
@@ -421,15 +436,16 @@ class SparqlConnection( object ):
             try:
                 # Launch query
                 res = self.srv.query()
-                # Check we received the MIME type we expect
+
+                # Check we received a MIME type we can process
                 expected = set( mime_type[fmt] )
                 info = res.info()
-                self.log.debug( u"Response info: %s", info )
+                self.log.debug( u'response info: %s', info )
                 got = info['content-type'].split(';')[0]
-                if got not in expected:
-                    raise KrnlException('Unexpected response format: {!s}',got)
-                # Convert result
-                res = res.convert()
+                if got not in expected:                    
+                    raise KrnlException(u'Unexpected response format: {!s}',got)
+                # Get the result
+                data = b''.join( (line for line in res) )
             except KrnlException:
                 raise
             except SPARQLWrapperException as e:
@@ -437,12 +453,20 @@ class SparqlConnection( object ):
             except Exception as e:
                 raise KrnlException( u'Query processing error: {!s}', e )
 
+            if self.cfg.out:
+                try:
+                    outname = self.cfg.out % num
+                except TypeError:
+                    outname = self.cfg.out
+                with io.open(outname,'wb') as f:
+                    f.write( data )
+
             # Render the result into the desired display format
             try:
-                f = render_n3 if fmt == SPARQLWrapper.N3 else render_json
-                r = f( res, self.cfg )
+                f = render_json if fmt == SPARQLWrapper.JSON else render_graph
+                r = f( data, self.cfg, format=got )
                 if not silent:
                     return r
             except Exception as e:
-                raise KrnlException( 'Response processing error: {!s}', e )
+                raise KrnlException( u'Response processing error: {!s}', e )
 

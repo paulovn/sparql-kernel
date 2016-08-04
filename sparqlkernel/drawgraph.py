@@ -100,10 +100,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
 import errno
-import StringIO
 import base64
 import collections
 import re
+from io import StringIO
 
 from IPython.core.display import display_png, display_svg
 import rdflib.tools.rdf2dot as r2d
@@ -138,7 +138,7 @@ def label(x, gr, preferred_languages=None):
                for labelProp in LABEL_PROPERTIES
                for l in gr.objects(x,labelProp) }
     if labels:
-        #return '/'.join( u'{}:{}'.format(*i) for i in labels.iteritems() )
+        #return u'/'.join( u'{}:{}'.format(*i) for i in labels.items() )
         if preferred_languages:
             for lang in preferred_languages:
                 if lang in labels:
@@ -165,7 +165,7 @@ def rdf2dot( g, stream, opts={} ):
     nodes = {}
     links = []
 
-    def node(x):
+    def node_id(x):
         if x not in nodes:
             nodes[x] = "node%d" % len(nodes)
         return nodes[x]
@@ -181,22 +181,26 @@ def rdf2dot( g, stream, opts={} ):
 
     # Write all edges. In the process make a list of all nodes
     for s, p, o in g:
-        sn = node(s)
+        sn = node_id(s)
         if p == rdflib.RDFS.label:
             continue
-        # If this triple points to another node, create a link
+        # If the object points to another node, create a link
         if isinstance( o, (rdflib.URIRef,rdflib.BNode) ):
-            on = node(o)
-            opstr = u'\t%s -> %s [ arrowhead="open", color="#9FC9E560", fontsize=10, fontcolor="#204080", label="%s" ] ;\n'
-            stream.write( opstr % (sn, on, qname(p,g)) )
+            on = node_id(o)
+            q = qname(p,g)
+            if isinstance(p, rdflib.URIRef):
+                opstr = u'\t%s -> %s [ arrowhead="open", color="#9FC9E560", fontsize=10, fontcolor="#204080", label="%s", href="%s", target="_other" ] ;\n' % (sn,on,q,p)
+            else:
+                opstr = u'\t%s -> %s [ arrowhead="open", color="#9FC9E560", fontsize=10, fontcolor="#204080", label="%s" ] ;\n'%(sn,on,q)
+            stream.write( opstr )
 
     # Write all nodes
     for u, n in nodes.items():
         stream.write(u"# %s %s\n" % (u, n))
         if isinstance(u, rdflib.URIRef):
-            opstr = u"%s [ shape=none, color=%s, href=\"%s\", fontsize=11, label=\"%s\" ] \n" % (n, r2d.NODECOLOR, u, escape(label(u,g,lang),True) )
+            opstr = u"%s [ shape=none, fontcolor=%s, href=\"%s\", target=_other, fontsize=11, label=\"%s\" ] \n" % (n, "blue", u, escape(label(u,g,lang),True) )
         else:
-            opstr = u"%s [ shape=none, color=%s, fontsize=11, label=\"%s\" ] \n" % (n, r2d.NODECOLOR, escape(label(u,g)) )
+            opstr = u"%s [ shape=none, fontcolor=%s, fontsize=11, label=\"%s\" ] \n" % (n, "black", escape(label(u,g)) )
         stream.write(opstr)
 
     stream.write("}\n")
@@ -256,7 +260,7 @@ def draw_graph( g, fmt='svg', prg='dot', lang=None, options=[] ):
     Draw an RDF graph as an image
     """
     # Convert RDF to Graphviz
-    buf = StringIO.StringIO()
+    buf = StringIO()
     rdf2dot( g, buf, { 'lang' : lang } )
 
     #import codecs
@@ -273,5 +277,5 @@ def draw_graph( g, fmt='svg', prg='dot', lang=None, options=[] ):
     if fmt == 'png':
         return { 'image/png' : base64.b64encode(image).decode('ascii') }
     elif fmt == 'svg':
-        return { 'image/svg+xml' : image }
+        return { 'image/svg+xml' : image.decode('utf-8') }
 
