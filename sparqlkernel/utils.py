@@ -64,11 +64,16 @@ def div( txt, *args, **kwargs ):
     return u'<div class="{}">{!s}</div>'.format( css, txt )
 
 
-def data_msg( msglist ):
+def data_msglist( msglist ):
     """
-    Return a kernel message, in both HTML & text formats, by putting together
-    all passed messages
-      @param msglist (iterable): an iterable containing tuples (message, css)
+    Return a Jupyter display_data message, in both HTML & text formats, by 
+    joining together all passed messages.
+
+      @param msglist (iterable): an iterable containing a list of tuples
+        (message, css_style)      
+
+    Each message is either a text string, or a list. In the latter case it is
+    assumed to be a format string + parameters.
     """
     txt = html = u''
     for msg, css in msglist:
@@ -77,8 +82,33 @@ def data_msg( msglist ):
         html += div( escape(msg).replace('\n','<br/>'), css=css or 'msg' )
         txt += msg + "\n"
     return { 'data': {'text/html' : div(html),
-                      'text/plain' : msg },
+                      'text/plain' : txt },
              'metadata' : {} }
+
+
+def data_msg( msg, mtype=None ):
+    """
+    Return a Jupyter display_data message, in both HTML & text formats, by 
+    formatting a given single message. The passed message may be:
+      * An exception (including a KrnlException): will generate an error message
+      * A list of messages (with \c mtype equal to \c multi)
+      * A single message
+
+      @param msg (str,list): a string, or a list of format string + args,
+        or an iterable of (msg,mtype)
+      @param mtype (str): the message type (used for the CSS class). If
+        it's \c multi, then \c msg will be treated as a multi-message. If
+        not passed, \c krn-error will be used for exceptions and \c msg for
+        everything else
+    """
+    if isinstance(msg,KrnlException):
+        return msg()    # a KrnlException knows how to format itself
+    elif isinstance(msg,Exception):
+        return KrnlException(msg)()
+    elif mtype == 'multi':
+        return data_msglist( msg )
+    else:
+        return data_msglist( [ (msg, mtype) ] )
 
 
 # ----------------------------------------------------------------------
@@ -93,6 +123,8 @@ class KrnlException( Exception ):
     def __init__(self, msg, *args):
         if len(args):
             msg = msg.format(*args)
+        elif isinstance(msg,Exception):
+            msg = repr(msg)
         super(KrnlException,self).__init__(msg)
         LOG.warn( 'KrnlException: %s', self, exc_info=1 )
 
@@ -100,11 +132,15 @@ class KrnlException( Exception ):
         """
         Generate a Jupyter data message
         """
-        html = div( div('<span class="title">Error:</span> ' + 
-                        self.args[0].replace('\n','<br/>'), css="error" ) )
-        return { 'data': {'text/html' : html,
-                          'text/plain' : 'Error: ' + self.args[0] },
-                 'metadata' : {} }
-
-
+        try:
+            msg = self.args[0]
+            html = div( div('<span class="title">Error:</span> ' + 
+                            escape(msg).replace('\n','<br/>'), 
+                            css="krn-error" ) )
+            return { 'data': {'text/html' : html,
+                              'text/plain' : 'Error: ' + msg },
+                     'metadata' : {} }
+        except Exception as e:
+            return { 'data':  { 'text/plain' : u'Error: '+unicode(repr(e)) },
+                     'metadata' : {} }
 

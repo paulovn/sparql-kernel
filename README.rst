@@ -11,13 +11,13 @@ It is implemented as a `Jupyter wrapper kernel`_, by using the Python
 Requirements
 ------------
 
-The kernel has only been tried with Python 2.7 and Jupyter 4.x. It might work 
-with Python 2.6 (perhaps with some tiny changes); it is unlikely to work with 
-Python 3. Most of the problems will come with Unicode buffers, Unicode content 
-(typically UTF-8) is common in SPARQL responses.
+The kernel has only been tried with Jupyter 4.x. It worsk with Python 2.7 and
+Python 3 (tested with Python 3.4).
 
 The above mentioned `SPARQLWrapper`_ & `rdflib`_ are required dependencies 
-(they are marked as such, so they will be installed with the package if needed).
+(they are marked as such, so they will automatically be installed with the 
+package if needed).
+
 An optional dependency is `Graphviz`_, needed to create diagrams for RDF result 
 graphs (Graphviz's ``dot`` program must be available for that to work).
 
@@ -25,14 +25,13 @@ graphs (Graphviz's ``dot`` program must be available for that to work).
 Installation
 ------------
 
-You will need Jupyter >= 4.0. The module is installable via ``pip``, however
-until it is uploaded to PyPI it will need to be installed from the URL.
+You will need Jupyter >= 4.0. The module is installable via ``pip``.
 
 The installation process requires two steps:
 
 1. Install the Python package::
 
-     pip install https://github.com/paulovn/sparql-kernel/archive/master.zip
+     pip install sparqlkernel
 
 2. Install the kernel into Jupyter::
 
@@ -52,6 +51,9 @@ improve the layout of the kernel results as they are presented in the notebook
 (but it also means that the rendered notebook will look slightly different in a
 Jupyter deployment in which the kernel has not been installed, or within an
 online viewer).
+
+The `examples` subdirectory contains some notebook examples (again, they will
+look slightly different if viewed on a running kernel).
 
 To uninstall, perform the inverse operations (in reverse order), to uninstall
 the kernel from Jupyter and to remove the Python package::
@@ -146,7 +148,7 @@ operation (N3 for ``DESCRIBE`` and ``CONSTRUCT``, JSON for ``SELECT``).
 
 Sets the output rendering shape::
 
-    %display raw | table [withtypes] | diagram [svg|png]
+    %display raw | table [withtypes] | diagram [svg|png] [withliterals]
 
 There are three possible display formats:
 
