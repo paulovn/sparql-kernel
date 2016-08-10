@@ -11,10 +11,8 @@ It is implemented as a `Jupyter wrapper kernel`_, by using the Python
 Requirements
 ------------
 
-The kernel has only been tried with Python 2.7 and Jupyter 4.x. It might work 
-with Python 2.6 (perhaps with some tiny changes); it is unlikely to work with 
-Python 3. Most of the problems will come with Unicode buffers, Unicode content 
-(typically UTF-8) is common in SPARQL responses.
+The kernel has only been tried with Jupyter 4.x. It worsk with Python 2.7 and
+Python 3 (tested with Python 3.4).
 
 The above mentioned `SPARQLWrapper`_ & `rdflib`_ are required dependencies 
 (they are marked as such, so they will automatically be installed with the 
