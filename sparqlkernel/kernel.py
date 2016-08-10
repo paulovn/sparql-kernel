@@ -101,34 +101,29 @@ class SparqlKernel(Kernel):
     # -----------------------------------------------------------------
 
 
-    def _send( self, data, silent=False, status='ok', is_msg=False ):
+    def _send( self, data, msg_type='ok', silent=False ):
         """
         Send a response to the frontend and return an execute message
          @param data: response to send
+         @param msg_type (str): message type: 'ok', 'raw', 'error', 'multi'
          @param silent (bool): suppress output
-         @param status (str): Jupyter status string
-         @param is_msg (bool): if the data contains a message list to be 
-            formatted
          @return (dict): the return value for the kernel
         """
         # Data to send back
         if data is not None:
             # log the message
             try:
-                self._klog.debug( u"msg to frontend: %.160s...", data )
+                self._klog.debug(u"msg to frontend (%d): %.160s...",silent,data)
             except Exception as e:
-                self._klog.warn( u"can't log response: %s", e )
-            with open( '/tmp/sparql-messages.txt', 'at') as f:
-                f.write( str(data) )
-                f.write('\n\n')
+                self._klog.warn(u"can't log response: %s",e)
             # send it to the frontend
             if not silent:
-                if is_msg:
-                    data = data_msg( data )
+                if msg_type != 'raw':
+                    data = data_msg( data, mtype=msg_type )
                 self.send_response(self.iopub_socket, 'display_data', data)
 
         # Result message
-        return {'status': status,
+        return {'status': 'error' if msg_type == 'error' else 'ok',
                 # The base class will increment the execution count
                 'execution_count': self.execution_count,
                 'payload' : [],
@@ -157,22 +152,21 @@ class SparqlKernel(Kernel):
                 if line[0] != '%':
                     break
                 magic_lines.append( line )
-                self._klog.debug( "MAGIC {%s}", line )
 
             # Process magics. Once done, remove them from the query buffer
             if magic_lines:
                 out = [ self._k.magic(line) for line in magic_lines ]
-                self._send( out, silent=silent, is_msg=True )
+                self._send( out, 'multi', silent=silent )
                 code = '\n'.join( code_noc[len(magic_lines):] )
 
             # If we have a regular SPARQL query, process it now
             result = self._k.query( code, num=self.execution_count ) if code else None
 
             # Return the result
-            return self._send( result, silent=silent )
+            return self._send( result, 'raw', silent=silent )
 
-        except KrnlException as e:
-            return self._send( e(), silent=silent, status='error' )
+        except Exception as e:
+            return self._send( e, 'error', silent=silent )
 
 
     # -----------------------------------------------------------------

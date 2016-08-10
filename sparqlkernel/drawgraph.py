@@ -129,6 +129,10 @@ LABEL_PROPERTIES = [
 
 def label(x, gr, preferred_languages=None):
     """
+      @param x : graph entity
+      @param gr (Graph): RDF graph
+      @param preferred_languages (iterable)
+
     Return the best available label in the graph for the passed entity.
     If a set of preferred languages is given, try them in order. If none is
     found, an arbitrary language will be chosen
@@ -138,15 +142,16 @@ def label(x, gr, preferred_languages=None):
                for labelProp in LABEL_PROPERTIES
                for l in gr.objects(x,labelProp) }
     if labels:
-        #return u'/'.join( u'{}:{}'.format(*i) for i in labels.items() )
-        if preferred_languages:
-            for lang in preferred_languages:
-                if lang in labels:
-                    return labels[lang]
+        #return repr(preferred_languages) + repr(labels)
+        #return u'|'.join(preferred_languages) +  u' -> ' + u'/'.join( u'{}:{}'.format(*i) for i in labels.items() )
+        if preferred_languages is not None:
+            for l in preferred_languages:
+                if l in labels:
+                    return labels[l]
         return labels.itervalues().next()
 
     # No labels available. Try to generate a QNAME, or else, the string itself
-    try:                                                                    
+    try:
         return gr.namespace_manager.compute_qname(x)[2].replace('_',' ')
     except:
         # Attempt to extract the trailing part of an URI
@@ -161,7 +166,8 @@ def rdf2dot( g, stream, opts={} ):
     Write the dot output to the stream
     """
 
-    lang = opts.get('lang')
+    accept_lang = set( opts.get('lang',[]) )
+    do_literal = opts.get('literal')
     nodes = {}
     links = []
 
@@ -177,33 +183,50 @@ def rdf2dot( g, stream, opts={} ):
         except:
             return x
 
-    stream.write(u"digraph { \n node [ fontname=\"DejaVu Sans\" ] ; \n")
+    def accept( node ):
+        if isinstance( node, (rdflib.URIRef,rdflib.BNode) ):
+            return True
+        if not do_literal:
+            return False
+        return (not accept_lang) or (node.language in accept_lang)
+
+
+    stream.write( u'digraph { \n node [ fontname="DejaVu Sans,Tahoma,Geneva,sans-serif" ] ; \n' )
 
     # Write all edges. In the process make a list of all nodes
     for s, p, o in g:
-        sn = node_id(s)
+        # skip triples for labels
         if p == rdflib.RDFS.label:
             continue
-        # If the object points to another node, create a link
-        if isinstance( o, (rdflib.URIRef,rdflib.BNode) ):
-            on = node_id(o)
-            q = qname(p,g)
-            if isinstance(p, rdflib.URIRef):
-                opstr = u'\t%s -> %s [ arrowhead="open", color="#9FC9E560", fontsize=10, fontcolor="#204080", label="%s", href="%s", target="_other" ] ;\n' % (sn,on,q,p)
-            else:
-                opstr = u'\t%s -> %s [ arrowhead="open", color="#9FC9E560", fontsize=10, fontcolor="#204080", label="%s" ] ;\n'%(sn,on,q)
-            stream.write( opstr )
+
+        # Create a link if both objects are graph nodes
+        # (or, if literals are also included, if their languages match)
+        if not (accept(s) and accept(o)):
+            continue
+
+        # add the nodes to the list
+        sn = node_id(s)
+        on = node_id(o)
+
+        # add the link
+        q = qname(p,g)
+        if isinstance(p, rdflib.URIRef):
+            opstr = u'\t%s -> %s [ arrowhead="open", color="#9FC9E560", fontsize=10, fontcolor="#204080", label="%s", href="%s", target="_other" ] ;\n' % (sn,on,q,p)
+        else:
+            opstr = u'\t%s -> %s [ arrowhead="open", color="#9FC9E560", fontsize=10, fontcolor="#204080", label="%s" ] ;\n'%(sn,on,q)
+        stream.write( opstr )
 
     # Write all nodes
     for u, n in nodes.items():
-        stream.write(u"# %s %s\n" % (u, n))
+        lbl = escape( label(u,g,accept_lang), True )
         if isinstance(u, rdflib.URIRef):
-            opstr = u"%s [ shape=none, fontcolor=%s, href=\"%s\", target=_other, fontsize=11, label=\"%s\" ] \n" % (n, "blue", u, escape(label(u,g,lang),True) )
+            opstr = u'%s [ shape=none, fontsize=11, fontcolor=%s, label="%s", href="%s", target=_other ] \n' % (n, 'blue', lbl, u )
         else:
-            opstr = u"%s [ shape=none, fontcolor=%s, fontsize=11, label=\"%s\" ] \n" % (n, "black", escape(label(u,g)) )
-        stream.write(opstr)
+            opstr = u'%s [ shape=none, fontsize=11, fontcolor=%s, label="%s" ] \n' % (n, 'black', lbl )
+        stream.write( u"# %s %s\n" % (u, n) )
+        stream.write( opstr )
 
-    stream.write("}\n")
+    stream.write(u'}\n')
 
 
 
@@ -213,13 +236,13 @@ EPIPE  = getattr(errno, 'EPIPE', 0)
 EINVAL = getattr(errno, 'EINVAL', 0)
 
 
-def run_dot( code, gv_options=[], **kwargs ):
+def run_dot( code, fmt='svg', gv_options=[], **kwargs ):
 
     # mostly copied from sphinx.ext.graphviz.render_dot
     import os
     from subprocess import Popen, PIPE
 
-    dot_args = [ kwargs.get('prg','dot') ] + gv_options + ['-T', kwargs.get('fmt','svg') ]
+    dot_args = [ kwargs.get('prg','dot') ] + gv_options + ['-T', fmt ]
     if os.name == 'nt':
         # Avoid opening shell window.
         # * https://github.com/tkf/ipython-hierarchymagic/issues/1
@@ -255,20 +278,21 @@ def run_dot( code, gv_options=[], **kwargs ):
 # ------------------------------------------------------------------------
 
 
-def draw_graph( g, fmt='svg', prg='dot', lang=None, options=[] ):
+def draw_graph( g, fmt='svg', prg='dot', options={} ):
     """
     Draw an RDF graph as an image
     """
     # Convert RDF to Graphviz
     buf = StringIO()
-    rdf2dot( g, buf, { 'lang' : lang } )
+    rdf2dot( g, buf, options )
 
     #import codecs
     #with codecs.open('/tmp/sparqlkernel-img.dot','w',encoding='utf-8') as f:
     #    f.write( buf.getvalue() )
     
     # Now use Graphviz to generate the graph
-    image = run_dot( buf.getvalue(), options=options, fmt=fmt, prg=prg )
+    image = run_dot( buf.getvalue(), fmt=fmt, 
+                     options=options.get('graphviz',[]), prg=prg )
 
     #with open('/tmp/sparqlkernel-img.'+fmt,'w') as f:
     #    f.write( image )

@@ -7,10 +7,9 @@ from __future__ import print_function
 import sys
 import io
 import json
-from itertools import chain
-import pprint
+import datetime
 import logging
-from logging.config import dictConfig
+import pprint
 
 from IPython.utils.tokenutil import token_at_cursor, line_at_cursor
 from ipykernel.kernelbase import Kernel
@@ -32,7 +31,8 @@ PY3 = sys.version_info[0] == 3
 if PY3:
     unicode = str
 
-# Valid mime types in the response (depending of what we requested)
+
+# Valid mime types in the SPARQL response (depending on what we requested)
 mime_type = { SPARQLWrapper.JSON :  ['application/sparql-results+json',
                                      'text/javascript'],
               SPARQLWrapper.N3 :    ['text/rdf+n3', 'text/turtle', 
@@ -52,7 +52,7 @@ magics = {
     '%prefix' :   [ 'uri', 'set a persistent URI prefix for all queries'], 
     '%graph' :    [ 'uri', 'set default graph for the queries' ],
     '%format' :   [ 'JSON | N3 | default', 'set requested result format' ],
-    '%display' :  [ 'raw | table [withtypes] | diagram [svg|png]', 
+    '%display' :  [ 'raw | table [withtypes] | diagram [svg|png] [withliterals]', 
                     'set display format' ],
     '%lang' :     [ '<lang> [...] | default | all',
                     'language(s) preferred for labels' ],
@@ -157,6 +157,7 @@ def lang_match_json( row, hdr, accepted_languages ):
                        row[c]['type'] == 'literal' ] )
     return (not languages) or (languages & accepted_languages)
 
+
 def lang_match_rdf( triple, accepted_languages ):
     languages = set( [ n.language for n in triple if isinstance(n,Literal) ] )
     return (not languages) or (languages & accepted_languages)
@@ -227,9 +228,10 @@ def render_json( result, cfg, **kwargs ):
 
 def render_graph( result, cfg, **kwargs ):
     """
-    Render for output a result in graph format
+    Render for output a result that can be parsed as an RDF graph
     """
 
+    # Mapping from MIME types to formats accepted by RDFlib
     rdflib_formats = { 'text/rdf+n3' : 'n3',
                        'text/turtle' : 'turtle',
                        'application/x-turtle' : 'turtle',
@@ -237,26 +239,26 @@ def render_graph( result, cfg, **kwargs ):
                        'application/rdf+xml' : 'xml',
                        'text/rdf' : 'xml',
                        'application/rdf+xml' : 'xml',
-                       }
+    }
 
     g = ConjunctiveGraph()
     g.load( StringInputSource(result), 
             format=rdflib_formats[kwargs.get('format','n3')] )
-    #if cfg.out:
-    #    save_to_file( g.serialize(format='nt',encoding='utf-8'), cfg.out )
 
-
-    if cfg.dis in ('png','svg') :
+    display = cfg.dis[0] if is_collection(cfg.dis) else cfg.dis
+    if display in ('png','svg') :
         try:
-            return { 'data' : draw_graph(g,fmt=cfg.dis,lang=cfg.lan), 
+            literal = len(cfg.dis) > 1 and cfg.dis[1].startswith('withlit')
+            opt = { 'lang' : cfg.lan, 'literal' : literal, 'graphviz' : [] }
+            return { 'data' : draw_graph(g,fmt=display,options=opt), 
                      'metadata' : {}  }
         except Exception as e:
             raise KrnlException( 'Exception while drawing graph: {!r}', e )
-    elif cfg.dis == 'table':
+    elif display == 'table':
         it = rdf_iterator(g,add_vtype=cfg.typ, lang=cfg.lan)
         n, data = html_table(it,limit=cfg.lmt, withtype=cfg.typ)
-        if cfg.lmt:
-            data += div( 'Shown: {}, Total rows: {}', n, len(g), css="tinfo" )
+        data += div( 'Shown: {}, Total rows: {}', n if cfg.lmt else 'all',
+                     len(g), css="tinfo" )
         data = {'text/html' : div(data) }
     else:
         data = { 'text/plain' : g.serialize(format='nt').decode('utf-8') }
@@ -272,7 +274,8 @@ class CfgStruct:
     """
     A simple class containing a bunch of fields
     """
-    def __init__(self, **entries): self.__dict__.update(entries)
+    def __init__(self, **entries): 
+        self.__dict__.update(entries)
 
 
 # ----------------------------------------------------------------------
@@ -362,7 +365,7 @@ class SparqlConnection( object ):
 
         elif cmd == 'display':
 
-            v = param.lower().split(None, 1)            
+            v = param.lower().split(None, 2)            
             if len(v) == 0 or v[0] not in ('table','raw','graph','diagram'):
                 raise KrnlException( 'invalid %display command: {}', param )
 
@@ -372,13 +375,19 @@ class SparqlConnection( object ):
                 self.cfg.typ = len(v)>1 and v[1].startswith('withtype')
                 if self.cfg.typ and self.cfg.dis == 'table':
                     msg_extra = '\nShow Types: on'
-            elif len(v) == 1:
-                self.cfg.dis = 'svg'
-            else:
+            elif len(v) == 1:   # graph format, defaults
+                self.cfg.dis = ['svg']
+            else:               # graph format, with options 
                 if v[1] not in ('png','svg'):
                     raise KrnlException( 'invalid graph format: {}', param )
-                self.cfg.dis = v[1]
-            return [ 'Display: {}{}', self.cfg.dis, msg_extra  ], 'magic'
+                if len(v) > 2:
+                    if not v[2].startswith('withlit'):
+                        raise KrnlException( 'invalid graph option: {}',param)
+                    msg_extra = '\nShow literals: on'
+                self.cfg.dis = v[1:3]
+
+            display = self.cfg.dis[0] if is_collection(self.cfg.dis) else self.cfg.dis
+            return [ 'Display: {}{}', display, msg_extra ], 'magic'
 
         elif cmd == 'outfile':
 
@@ -411,16 +420,16 @@ class SparqlConnection( object ):
         Launch an SPARQL query, process & convert results and return them
         """
         if self.srv is None:
-            raise KrnlException( 'no endpoint defined')             
-
-        if self.log.isEnabledFor(logging.DEBUG):
-            self.log.debug( "%50s%s", query, '...' if len(query)>50 else '' )
+            raise KrnlException('no endpoint defined')             
 
         # Add to the query all predefined SPARQL prefixes
         if self.cfg.pfx:
             prefix = '\n'.join( ( 'PREFIX {} {}'.format(*v) 
                                   for v in self.cfg.pfx(iteritems) ) )
             query = prefix  + '\n' + code
+
+        if self.log.isEnabledFor(logging.DEBUG):
+            self.log.debug( "\n%50s%s", query, '...' if len(query)>50 else '' )
 
         # Set the query
         self.srv.resetQuery()
@@ -435,7 +444,11 @@ class SparqlConnection( object ):
         if not silent or self.cfg.out:
             try:
                 # Launch query
+                start = datetime.datetime.utcnow()
                 res = self.srv.query()
+                now = datetime.datetime.utcnow()
+                self.log.debug( u'response elapsed=%s', now-start )
+                start = now
 
                 # Check we received a MIME type we can process
                 expected = set( mime_type[fmt] )
@@ -453,6 +466,7 @@ class SparqlConnection( object ):
             except Exception as e:
                 raise KrnlException( u'Query processing error: {!s}', e )
 
+            # Write the raw result to a file
             if self.cfg.out:
                 try:
                     outname = self.cfg.out % num
@@ -465,6 +479,8 @@ class SparqlConnection( object ):
             try:
                 f = render_json if fmt == SPARQLWrapper.JSON else render_graph
                 r = f( data, self.cfg, format=got )
+                now = datetime.datetime.utcnow()
+                self.log.debug( u'response formatted=%s', now-start )
                 if not silent:
                     return r
             except Exception as e:
