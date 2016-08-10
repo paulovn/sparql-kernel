@@ -157,7 +157,6 @@ def lang_match_json( row, hdr, accepted_languages ):
                        row[c]['type'] == 'literal' ] )
     return (not languages) or (languages & accepted_languages)
 
-
 def lang_match_rdf( triple, accepted_languages ):
     languages = set( [ n.language for n in triple if isinstance(n,Literal) ] )
     return (not languages) or (languages & accepted_languages)
@@ -250,8 +249,9 @@ def render_graph( result, cfg, **kwargs ):
         try:
             literal = len(cfg.dis) > 1 and cfg.dis[1].startswith('withlit')
             opt = { 'lang' : cfg.lan, 'literal' : literal, 'graphviz' : [] }
-            return { 'data' : draw_graph(g,fmt=display,options=opt), 
-                     'metadata' : {}  }
+            data, metadata = draw_graph(g,fmt=display,options=opt)
+            return { 'data' : data,
+                     'metadata' : metadata  }
         except Exception as e:
             raise KrnlException( 'Exception while drawing graph: {!r}', e )
     elif display == 'table':
