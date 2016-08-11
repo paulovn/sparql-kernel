@@ -11,7 +11,7 @@ It is implemented as a `Jupyter wrapper kernel`_, by using the Python
 Requirements
 ------------
 
-The kernel has only been tried with Jupyter 4.x. It worsk with Python 2.7 and
+The kernel has only been tried with Jupyter 4.x. It works with Python 2.7 and
 Python 3 (tested with Python 3.4).
 
 The above mentioned `SPARQLWrapper`_ & `rdflib`_ are required dependencies 
