@@ -45,12 +45,13 @@ SPARQLWrapper & rdflib packages''',
         'pygments.lexers' :
         ['sparql_with_magic = sparqlkernel.pygments_sparql:SparqlLexerMagics']
     },
-    package_data = { 
-        PKGNAME: [ 'resources/logo-*x*.png', 
-                   'resources/*.css' ],
-    },
-    include_package_data = True,
 
+    include_package_data = False,       # otherwise package_data is not used
+    package_data = { 
+        PKGNAME : [ 'resources/logo-*.png', 'resources/*.css' ],
+    },
+
+    keywords = ['SPARQL','RDF','Jupyter','kernel'],
     classifiers = [
           'Framework :: IPython',
           'Programming Language :: Python :: 2.7',
