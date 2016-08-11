@@ -12,7 +12,9 @@ from setuptools import setup
 
 from sparqlkernel.constants import __version__, LANGUAGE, DISPLAY_NAME
 
+
 PKGNAME = 'sparqlkernel'
+GITHUB_URL = 'https://github.com/paulovn/sparql-kernel'
 
 setup_args = dict (
     name=PKGNAME,
@@ -24,7 +26,8 @@ to an SPARQL endpoint and fetching & presenting the results in a notebook.
 It is implemented as a Jupyter wrapper kernel, by using the Python 
 SPARQLWrapper & rdflib packages''',
     license='3-clause BSD license',
-    url='https://github.com/paulovn/sparql-kernel',
+    url=GITHUB_URL,
+    download_url = GITHUB_URL + '/tarball/v' + __version__,
     author='Paulo Villegas',
     author_email='paulo.vllgs@gmail.com',
 
