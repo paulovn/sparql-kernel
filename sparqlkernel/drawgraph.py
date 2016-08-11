@@ -306,6 +306,6 @@ def draw_graph( g, fmt='svg', prg='dot', options={} ):
         return { 'image/png' : base64.b64encode(image).decode('ascii') }, \
                { "image/png" : metadata }
     elif fmt == 'svg':
-        return { 'image/svg+xml' : image.decode('utf-8') }, {}
-
+        return { 'image/svg+xml' : image.decode('utf-8') }, \
+               { "unconfined" : True }
 

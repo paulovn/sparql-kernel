@@ -63,8 +63,9 @@ class SparqlKernel(Kernel):
     language_version = '1.1'
     language_info = { 'name': 'sparql', 
                       'mimetype': 'application/sparql-query',
-                      "codemirror_mode":  { "name": "sparql" }
-                    }
+                      'codemirror_mode':  { "name": "sparql" },
+                      'pygments_lexer' : 'sparql-nb',
+           }
 
     # Add some items to notebook help menu
     help_links = List([
