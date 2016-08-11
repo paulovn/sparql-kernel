@@ -163,7 +163,8 @@ There are three possible display formats:
   format) and generates an image with a rendering of the graph. For it to
   work, the ``dot`` program from GraphViz must be available in the search path.
   The modifier selects the image format. Default is SVG, which usually works
-  much better (PNG typically generates too small images)
+  much better (PNG quality is lower, image size is fixed and cannot contain
+  hyperlinks).
 
 
 
