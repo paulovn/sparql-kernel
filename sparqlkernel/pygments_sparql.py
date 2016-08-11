@@ -7,6 +7,8 @@ class SparqlLexerMagics( SparqlLexer ):
     A variant of the standard SPARQL Pygments lexer that understands 
     line magics
     """
+    #print( "I'm the custom converter")
+
     aliases = [ 'sparql-nb', 'sparql' ]
     name = 'SPARQL w/ notebook magics'
 
@@ -14,4 +16,3 @@ class SparqlLexerMagics( SparqlLexer ):
     tokens = SparqlLexer.tokens
     tokens['root'] = [ (r'^%[a-zA-Z]\w+.*\n', Other ) ] + tokens['root'] 
 
-    print( "I'm the custom converter")
