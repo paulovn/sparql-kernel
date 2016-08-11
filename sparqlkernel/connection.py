@@ -153,8 +153,8 @@ def gtype( n ):
 
 
 def lang_match_json( row, hdr, accepted_languages ):
-    languages = set( [ row[c].get('xml:lang') for c in hdr if
-                       row[c]['type'] == 'literal' ] )
+    languages = set( [ row[c].get('xml:lang') for c in hdr
+                       if c in row and row[c]['type'] == 'literal' ] )
     return (not languages) or (languages & accepted_languages)
 
 def lang_match_rdf( triple, accepted_languages ):
@@ -176,7 +176,8 @@ def json_iterator( hdr, rowlist, add_vtype=False, lang=[] ):
     for row in rowlist:
         if lang and not lang_match_json( row, hdr, lang ):
             continue
-        yield ( (row[c]['value'], jtype(row[c])) for c in hdr )
+        yield ( (row[c]['value'], jtype(row[c])) if c in row else ('','')
+                for c in hdr )
 
 
 def rdf_iterator( graph, add_vtype=False, lang=[] ):

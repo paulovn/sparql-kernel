@@ -55,23 +55,56 @@ WHERE {
   TriplesBlock? ( ( GraphPatternNotTriples | Filter ) '.'? TriplesBlock? )* 
 }
 ORDER BY OrderCondition
-LIMIT integer
-OFFSET integer
+LIMIT Integer
+OFFSET Integer
 ''',
 
     'CONSTRUCT' :
 r'''Returns an RDF graph constructed by substituting variables in a set of 
 triple templates.
+
+CONSTRUCT ConstructTemplate DatasetClause* WhereClause SolutionModifier
 ''',
 
     'ASK' :
-r'''Returns a boolean indicating whether a query pattern matches or not.''',
+r'''Returns a boolean indicating whether a query pattern matches or not.
+
+ASK DatasetClause* WhereClause''',
 
     'DESCRIBE' :
 r'''Returns an RDF graph that describes the resources found.
 
 DESCRIBE ( VarOrIRIref+ | '*' ) 
-DatasetClause* WhereClause? SolutionModifier'''
+DatasetClause* WhereClause? SolutionModifier''',
+
+
+    'FILTER' :
+r'''Restrict the solutions of a graph pattern: eliminate solutions 
+that, when substituted into the expression, either result in 
+an effective boolean value of false or produce an error.
+
+FILTER ( Expression ) | BuiltInCall | FunctionCall
+
+BuiltInCall ->
+  STR ( Expression )
+| LANG ( Expression ) 
+| LANGMATCHES ( Expression , Expression ) 
+| DATATYPE ( Expression ) 
+| BOUND ( Var ) 
+| sameTerm ( Expression , Expression ) 
+| isIRI ( Expression ) 
+| isURI ( Expression ) 
+| isBLANK ( Expression ) 
+| isLITERAL ( Expression )' 
+| REGEX ( Expression , Expression , ... )''',
+
+    'ORDER' : 
+r'''Establishes the order of a solution sequence
+
+ORDER BY ASC(Expr) | DESC(Expr) | (Expr) | ?Varname | $Varname''',
+
+    'LIMIT' :
+r'''Puts an upper bound on the number of solutions returned. 
+
+LIMIT Integer''',
 }
-
-

@@ -53,7 +53,7 @@ other formats (HTML). But it also means that the rendered notebook will look
 slightly different in a Jupyter deployment in which the kernel has not been 
 installed, or within an online viewer.
 
-The `examples` subdirectory contains some notebook examples (again, they will
+The ``examples`` subdirectory contains some notebook examples (again, they will
 look slightly different if viewed on a running kernel). They can also be viewed
 through the `online Notebook viewer`_.
 
