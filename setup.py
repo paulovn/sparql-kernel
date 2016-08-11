@@ -30,17 +30,22 @@ SPARQLWrapper & rdflib packages''',
 
     packages=[ PKGNAME ],
     install_requires = [ 'setuptools',
-                         'ipykernel >= 4.0', 
-                         'traitlets', 
-                         'rdflib', 
+                         'ipykernel >= 4.0',
+                         'traitlets',
+                         'rdflib',
+                         'pygments',
                          'SPARQLWrapper', ],
 
-    entry_points = { 'console_scripts': [
-        'jupyter-sparqlkernel = sparqlkernel.__main__:main',
-    ]},
-    package_data={ PKGNAME: [ 'resources/logo-*x*.png', 
-                              'resources/*.css' ],
-               },
+    entry_points = { 
+        'console_scripts': 
+        [ 'jupyter-sparqlkernel = sparqlkernel.__main__:main'],
+        'pygments.lexers' :
+        ['sparql_with_magic = sparqlkernel.pygments_sparql:SparqlLexerMagics']
+    },
+    package_data = { 
+        PKGNAME: [ 'resources/logo-*x*.png', 
+                   'resources/*.css' ],
+    },
     include_package_data = True,
 
     classifiers = [

@@ -46,14 +46,16 @@ Additionally, the ``--logdir <dir>`` option will define the default directory to
 use for logfiles (it can be overriden when executing the kernel by defining
 the ``LOGDIR`` environment variable).
 
-Note that kernel installation also installs some custom CSS; its purpose is to
-improve the layout of the kernel results as they are presented in the notebook
-(but it also means that the rendered notebook will look slightly different in a
-Jupyter deployment in which the kernel has not been installed, or within an
-online viewer).
+Note that kernel installation also installs some custom CSS and a modification
+for a Pygments highlighter; its purpose is to improve the layout of the kernel
+results as they are presented in the notebook and to improve conversion to
+other formats (HTML). But it also means that the rendered notebook will look 
+slightly different in a Jupyter deployment in which the kernel has not been 
+installed, or within an online viewer.
 
-The `examples` subdirectory contains some notebook examples (again, they will
-look slightly different if viewed on a running kernel).
+The ``examples`` subdirectory contains some notebook examples (again, they will
+look slightly different if viewed on a running kernel). They can also be viewed
+through the `online Notebook viewer`_.
 
 To uninstall, perform the inverse operations (in reverse order), to uninstall
 the kernel from Jupyter and to remove the Python package::
@@ -171,3 +173,4 @@ There are three possible display formats:
 .. _SPARQLWrapper: https://rdflib.github.io/sparqlwrapper/
 .. _rdflib: https://github.com/RDFLib/rdflib
 .. _Graphviz: http://www.graphviz.org/
+.. _online Notebook viewer: http://nbviewer.jupyter.org/github/paulovn/sparql-kernel/blob/master/examples/
