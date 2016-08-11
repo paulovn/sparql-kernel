@@ -21,6 +21,10 @@ from IPython.utils.tempdir import TemporaryDirectory
 
 from .constants import __version__, KERNEL_NAME, DISPLAY_NAME, LANGUAGE
 
+PY3 = sys.version_info[0] == 3
+if PY3:
+    unicode = str
+
 MODULEDIR = os.path.dirname(__file__)
 PKGNAME = os.path.basename( MODULEDIR )
 
@@ -96,7 +100,7 @@ def install_custom_css( destdir, cssfile, resource=PKGNAME ):
         if os.path.exists( custom ):
             with open( custom, 'rt' ) as fin:
                 for line in fin:
-                    fout.write( line )
+                    fout.write( unicode(line) )
     os.rename( custom+'-new',custom)
 
 
@@ -106,6 +110,8 @@ def remove_custom_css(destdir, resource=PKGNAME ):
     """
 
     # Remove the inclusion in the main CSS
+    if not os.path.isdir( destdir ):
+        return False
     custom = os.path.join( destdir, 'custom.css' )
     copy = True
     found = False
