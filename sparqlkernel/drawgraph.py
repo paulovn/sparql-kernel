@@ -211,18 +211,18 @@ def rdf2dot( g, stream, opts={} ):
         # add the link
         q = qname(p,g)
         if isinstance(p, rdflib.URIRef):
-            opstr = u'\t%s -> %s [ arrowhead="open", color="#9FC9E560", fontsize=10, fontcolor="#204080", label="%s", href="%s", target="_other" ] ;\n' % (sn,on,q,p)
+            opstr = u'\t%s -> %s [ arrowhead="open", color="#9FC9E560", fontsize=9, fontcolor="#204080", label="%s", href="%s", target="_other" ] ;\n' % (sn,on,q,p)
         else:
-            opstr = u'\t%s -> %s [ arrowhead="open", color="#9FC9E560", fontsize=10, fontcolor="#204080", label="%s" ] ;\n'%(sn,on,q)
+            opstr = u'\t%s -> %s [ arrowhead="open", color="#9FC9E560", fontsize=9, fontcolor="#204080", label="%s" ] ;\n'%(sn,on,q)
         stream.write( opstr )
 
     # Write all nodes
     for u, n in nodes.items():
         lbl = escape( label(u,g,accept_lang), True )
         if isinstance(u, rdflib.URIRef):
-            opstr = u'%s [ shape=none, fontsize=11, fontcolor=%s, label="%s", href="%s", target=_other ] \n' % (n, 'blue', lbl, u )
+            opstr = u'%s [ shape=none, fontsize=10, fontcolor=%s, label="%s", href="%s", target=_other ] \n' % (n, 'blue', lbl, u )
         else:
-            opstr = u'%s [ shape=none, fontsize=11, fontcolor=%s, label="%s" ] \n' % (n, 'black', lbl )
+            opstr = u'%s [ shape=none, fontsize=10, fontcolor=%s, label="%s" ] \n' % (n, 'black', lbl )
         stream.write( u"# %s %s\n" % (u, n) )
         stream.write( opstr )
 
@@ -306,6 +306,6 @@ def draw_graph( g, fmt='svg', prg='dot', options={} ):
         return { 'image/png' : base64.b64encode(image).decode('ascii') }, \
                { "image/png" : metadata }
     elif fmt == 'svg':
-        return { 'image/svg+xml' : image.decode('utf-8') }, \
+        return { 'image/svg+xml' : image.decode('utf-8').replace('<svg','<svg class="unconfined"',1) }, \
                { "unconfined" : True }
 
