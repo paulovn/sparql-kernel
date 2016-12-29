@@ -34,10 +34,13 @@ SPARQLWrapper & rdflib packages''',
     packages=[ PKGNAME ],
     install_requires = [ 'setuptools',
                          'ipykernel >= 4.0',
+                         'notebook',
                          'traitlets',
                          'rdflib',
                          'pygments',
                          'SPARQLWrapper', ],
+#    extras_require = {
+#        'Diagram': [ 'graphviz' ] },
 
     entry_points = { 
         'console_scripts': 
