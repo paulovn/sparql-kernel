@@ -44,7 +44,8 @@ needs write permissions in the system directories).
 
 Additionally, the ``--logdir <dir>`` option will define the default directory to
 use for logfiles (it can be overriden when executing the kernel by defining
-the ``LOGDIR`` environment variable).
+the ``LOGDIR`` environment variable). By default it will use the system
+temporal directory.
 
 Note that kernel installation also installs some custom CSS and a modification
 for a Pygments highlighter; its purpose is to improve the layout of the kernel
@@ -139,10 +140,17 @@ It remains active until superceded by another ``%endpoint`` magic.
 
 Sets the data format requested to the SPARQL endpoint::
 
-    %format JSON | N3 | default
+    %format JSON | N3  | any | default
 
-where ``default`` selects a default format depending on the requested SPARQL
-operation (N3 for ``DESCRIBE`` and ``CONSTRUCT``, JSON for ``SELECT``).
+where:
+
+* ``JSON`` requests *application/sparql-results+json* format
+* ``N3`` requests the endpoint to provide results in *text/rdf+n3* format
+* ``any`` lets the endpoint return any format it pleases (note that if the returned
+  format is not JSON or N3, it will be rendered as raw text)
+* ``default`` selects a default format depending on the requested SPARQL
+  operation (N3 for ``DESCRIBE`` and ``CONSTRUCT``, JSON for ``SELECT``, *any*
+  for the rest)
 
 
 ``%display``
@@ -165,6 +173,10 @@ There are three possible display formats:
   The modifier selects the image format. Default is SVG, which usually works
   much better (PNG quality is lower, image size is fixed and cannot contain
   hyperlinks).
+
+Default is ``table``. Note that if the result format is not a supported format
+for a table or diagram representation (i.e. it is not JSON or N3), then raw
+format will be used.
 
 
 

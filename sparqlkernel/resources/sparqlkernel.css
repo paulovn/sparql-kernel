@@ -48,11 +48,20 @@ div.krn-spql div.tinfo {
 div.krn-spql div.krn-error {
     text-align: left;
     padding: 2px;
-    margin: 2px; 
+    margin: 2px;
     border: 1px solid red;
     font-family: DejaVu Sans Mono, Courier New, Courier, Monospace;
 }
 div.krn-spql div.krn-error span.title { 
     color: red; font-weight: bold;
 }
+
+/* Warning */
+div.krn-spql div.krn-warn { 
+    color: #e87211;
+    font-weight: bold;
+    padding: 2px;
+    border: 1px solid gray;
+}
+
 /* ------------------------------------------------------------------------- */
