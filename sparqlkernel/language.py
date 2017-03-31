@@ -18,12 +18,14 @@ sparql_keywords = [
     'BIND', 'AS', 
     'DISTINCT', 'REDUCED',
     'HAVING',
+    'USING', 'NAMED',
     'FROM NAMED', 'GRAPH',
     'ORDER BY', 'ASC', 'DESC',
     'COUNT', 'SUM', 'MIN', 'MAX', 'AVG', 'GROUP_CONCAT', 'SAMPLE',
 
     'LOAD', 'CLEAR', 'DROP', 'CREATE', 'ADD', 'MOVE', 'COPY', 'SILENT',
     'INSERT', 'DELETE',
+    'INSERT DATA', 'DELETE DATA', 'DELETE WHERE',
 
     # SPARQL 1.1
     'SERVICE'

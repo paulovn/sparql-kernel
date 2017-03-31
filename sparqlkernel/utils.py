@@ -122,7 +122,10 @@ class KrnlException( Exception ):
     """
     def __init__(self, msg, *args):
         if len(args):
-            msg = msg.format(*args)
+            try:
+                msg = msg.format(*args)
+            except UnicodeError:
+                pass
         elif isinstance(msg,Exception):
             msg = repr(msg)
         super(KrnlException,self).__init__(msg)

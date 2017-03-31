@@ -6,6 +6,7 @@ from __future__ import print_function
 
 import sys
 import io
+import re
 import json
 import datetime
 import logging
@@ -30,17 +31,20 @@ from .drawgraph import draw_graph
 PY3 = sys.version_info[0] == 3
 if PY3:
     unicode = str
+    touc = str
+else:
+    touc = lambda x : str(x).decode('utf-8','replace')
 
 
 # Valid mime types in the SPARQL response (depending on what we requested)
-mime_type = { SPARQLWrapper.JSON :  ['application/sparql-results+json',
-                                     'text/javascript'],
-              SPARQLWrapper.N3 :    ['text/rdf+n3', 'text/turtle', 
-                                     'application/x-turtle',
-                                     'application/rdf+xml'],
-              SPARQLWrapper.RDF :   ['text/rdf', 'application/rdf+xml'],
-              SPARQLWrapper.TURTLE: ['text/turtle', 'application/x-turtle'],
-              SPARQLWrapper.XML :   ['application/sparql-results+xml'],
+mime_type = { SPARQLWrapper.JSON :  set(['application/sparql-results+json',
+                                         'text/javascript']),
+              SPARQLWrapper.N3 :    set(['text/rdf+n3', 'text/turtle', 
+                                         'application/x-turtle',
+                                         'application/rdf+xml']),
+              SPARQLWrapper.RDF :   set(['text/rdf', 'application/rdf+xml']),
+              SPARQLWrapper.TURTLE: set(['text/turtle', 'application/x-turtle']),
+              SPARQLWrapper.XML :   set(['application/sparql-results+xml']),
 }
 
 # ----------------------------------------------------------------------
@@ -51,14 +55,14 @@ magics = {
     '%endpoint' : [ 'url', 'set SPARQL endpoint. REQUIRED.'],
     '%prefix' :   [ 'uri', 'set a persistent URI prefix for all queries'], 
     '%graph' :    [ 'uri', 'set default graph for the queries' ],
-    '%format' :   [ 'JSON | N3 | default', 'set requested result format' ],
+    '%format' :   [ 'JSON | N3 | any | default', 'set requested result format' ],
     '%display' :  [ 'raw | table [withtypes] | diagram [svg|png] [withliterals]', 
                     'set display format' ],
     '%lang' :     [ '<lang> [...] | default | all',
                     'language(s) preferred for labels' ],
     '%show' :     [ '<n> | all',
                     'maximum number of shown results' ],
-    '%outfile' :  [ '<filename> | NONE', 'save raw output to a file (use "%d" in name to add cell number)'],
+    '%outfile' :  [ '<filename> | NONE', 'save raw output to a file (use "%d" in name to add cell number, "NONE" to cancel saving)'],
     '%log' :      [ 'critical | error | warning | info | debug', 
                     'set logging level'],
 }
@@ -241,9 +245,14 @@ def render_graph( result, cfg, **kwargs ):
                        'application/rdf+xml' : 'xml',
     }
 
+    try:
+        got = kwargs.get('format','text/rdf+n3')
+        fmt = rdflib_formats[got]
+    except KeyError:
+        raise KrnlException( 'Unsupported format for graph processing: {!s}', got )
+
     g = ConjunctiveGraph()
-    g.load( StringInputSource(result), 
-            format=rdflib_formats[kwargs.get('format','n3')] )
+    g.load( StringInputSource(result), format=fmt )
 
     display = cfg.dis[0] if is_collection(cfg.dis) else cfg.dis
     if display in ('png','svg') :
@@ -261,6 +270,8 @@ def render_graph( result, cfg, **kwargs ):
         data += div( 'Shown: {}, Total rows: {}', n if cfg.lmt else 'all',
                      len(g), css="tinfo" )
         data = {'text/html' : div(data) }
+    elif len(g) == 0:
+        data = { 'text/html' : div( div('empty graph',css='krn-warn') ) }
     else:
         data = { 'text/plain' : g.serialize(format='nt').decode('utf-8') }
 
@@ -291,7 +302,7 @@ class SparqlConnection( object ):
         self.srv = None
         self.log.info( "START" )
         self.cfg = CfgStruct( pfx={}, lmt=20, fmt=None, out=None,
-                              grh=None, dis=None, typ=False, lan=[] )
+                              grh=None, dis='table', typ=False, lan=[] )
 
     def magic( self, line ):
         """
@@ -346,7 +357,8 @@ class SparqlConnection( object ):
 
             fmt_list = { 'JSON' : SPARQLWrapper.JSON, 
                          'N3' :  SPARQLWrapper.N3,
-                         'DEFAULT' : None }
+                         'DEFAULT' : None,
+                         'ANY' : False }
             try:
                 fmt = param.upper()
                 self.cfg.fmt = fmt_list[fmt]
@@ -432,12 +444,21 @@ class SparqlConnection( object ):
         if self.log.isEnabledFor(logging.DEBUG):
             self.log.debug( "\n%50s%s", query, '...' if len(query)>50 else '' )
 
+        # Select requested format
+        if self.cfg.fmt is not None:
+            fmt_req = self.cfg.fmt
+        elif re.search(r'\bselect\b',query,re.I):
+            fmt_req = SPARQLWrapper.JSON
+        elif re.search(r'\b(?:describe|construct)\b',query,re.I):
+            fmt_req = SPARQLWrapper.N3
+        else:
+            fmt_req = False
+
         # Set the query
         self.srv.resetQuery()
-        qup = query.upper()
-        fmt = self.cfg.fmt if self.cfg.fmt else SPARQLWrapper.N3 if 'DESCRIBE' in qup or 'CONSTRUCT' in qup else SPARQLWrapper.JSON
-        self.srv.setReturnFormat( fmt )
-        self.log.debug( u'requested format: %s', fmt )
+        self.log.debug(u'request format: %s  display: %s', fmt_req, self.cfg.dis)
+        if fmt_req:
+            self.srv.setReturnFormat( fmt_req )
         if self.cfg.grh:
             self.srv.addParameter("default-graph-uri",self.cfg.grh)
         self.srv.setQuery( query )
@@ -451,19 +472,22 @@ class SparqlConnection( object ):
                 self.log.debug( u'response elapsed=%s', now-start )
                 start = now
 
-                # Check we received a MIME type we can process
-                expected = set( mime_type[fmt] )
+                # See what we got
                 info = res.info()
                 self.log.debug( u'response info: %s', info )
-                got = info['content-type'].split(';')[0]
-                if got not in expected:                    
-                    raise KrnlException(u'Unexpected response format: {!s}',got)
+                fmt_got = info['content-type'].split(';')[0] if 'content-type' in info else None
+
+                # Check we received a MIME type according to what we requested
+                if fmt_req and fmt_got not in mime_type[fmt_req]:
+                    raise KrnlException(u'Unexpected response format: {}',fmt_got)
+
                 # Get the result
                 data = b''.join( (line for line in res) )
+
             except KrnlException:
                 raise
             except SPARQLWrapperException as e:
-                raise KrnlException( u'SPARQL error: {!s}', e )
+                raise KrnlException( u'SPARQL error: {}', touc(e) )
             except Exception as e:
                 raise KrnlException( u'Query processing error: {!s}', e )
 
@@ -478,12 +502,26 @@ class SparqlConnection( object ):
 
             # Render the result into the desired display format
             try:
-                f = render_json if fmt == SPARQLWrapper.JSON else render_graph
-                r = f( data, self.cfg, format=got )
-                now = datetime.datetime.utcnow()
-                self.log.debug( u'response formatted=%s', now-start )
+                # Data format we will render
+                fmt = (fmt_req if fmt_req else
+                       SPARQLWrapper.JSON if fmt_got in mime_type[SPARQLWrapper.JSON] else
+                       SPARQLWrapper.N3 if fmt_got in mime_type[SPARQLWrapper.N3] else
+                       'text/plain' if self.cfg.dis == 'raw' else
+                       fmt_got if fmt_got in ('text/plain','text/html') else
+                       'text/plain')
+                #self.log.debug(u'format: req=%s got=%s rend=%s',fmt_req,fmt_got,fmt)
+
+                # Can't process? Just write the data as is
+                if fmt in ('text/plain','text/html'):
+                    r = { 'data': { fmt : data }, 'metadata' : {} }
+                else:
+                    f = render_json if fmt == SPARQLWrapper.JSON else render_graph
+                    r = f( data, self.cfg, format=fmt_got )
+                    now = datetime.datetime.utcnow()
+                    self.log.debug( u'response formatted=%s', now-start )
                 if not silent:
                     return r
+
             except Exception as e:
-                raise KrnlException( u'Response processing error: {!s}', e )
+                raise KrnlException( u'Response processing error: {}', touc(e) )
 
