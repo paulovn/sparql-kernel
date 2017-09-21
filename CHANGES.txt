@@ -1,0 +1,4 @@
+v. 1.0.6
+
+* bugfix: hamdling of `%prefix` magics
+* new magic: `%qparam`, to add custom parameters to the query URL

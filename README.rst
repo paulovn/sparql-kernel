@@ -132,7 +132,25 @@ Its syntax is::
     %endpoint <url>
 
 and it simply defines the SPARQL endpoint for all subsequent queries. 
-It remains active until superceded by another ``%endpoint`` magic.
+It remains active until superseded by another ``%endpoint`` magic.
+
+
+``%qparam``
+...........
+
+Define a custom additional parameter to be sent with every query. Its syntax
+is::
+
+  %qparam <name> <value>
+
+and it will add the ``name=value`` parameter to every subsequent query (it can
+be used e.g. to send API keys, or any parameter required by the endpoint).
+
+Any number of parameters can be defined; they will all be added to the queries
+executed after their definitions. To remove a parameter, use a line with no
+value::
+
+  %qparam <name>
 
 
 ``%format``
@@ -146,8 +164,8 @@ where:
 
 * ``JSON`` requests *application/sparql-results+json* format
 * ``N3`` requests the endpoint to provide results in *text/rdf+n3* format
-* ``any`` lets the endpoint return any format it pleases (note that if the returned
-  format is not JSON or N3, it will be rendered as raw text)
+* ``any`` lets the endpoint return any format it pleases (note that if the
+  returned format is not JSON or N3, it will be rendered as raw text)
 * ``default`` selects a default format depending on the requested SPARQL
   operation (N3 for ``DESCRIBE`` and ``CONSTRUCT``, JSON for ``SELECT``, *any*
   for the rest)

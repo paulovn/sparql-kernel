@@ -52,9 +52,10 @@ mime_type = { SPARQLWrapper.JSON :  set(['application/sparql-results+json',
 # The list of implemented magics with their help, as a pair [param,help-text]
 magics = { 
     '%lsmagics' : [ '', 'list all magics'], 
-    '%endpoint' : [ 'url', 'set SPARQL endpoint. REQUIRED.'],
-    '%prefix' :   [ 'uri', 'set a persistent URI prefix for all queries'], 
-    '%graph' :    [ 'uri', 'set default graph for the queries' ],
+    '%endpoint' : [ '<url>', 'set SPARQL endpoint. **REQUIRED**'],
+    '%qparam' :   [ '<name> [<value>]', 'add (or delete) a persistent custom parameter to the endpoint query'],
+    '%prefix' :   [ '<name> [<uri>]', 'set (or delete) a persistent URI prefix for all queries'],
+    '%graph' :    [ '<uri>', 'set default graph for the queries' ],
     '%format' :   [ 'JSON | N3 | any | default', 'set requested result format' ],
     '%display' :  [ 'raw | table [withtypes] | diagram [svg|png] [withliterals]', 
                     'set display format' ],
@@ -302,7 +303,7 @@ class SparqlConnection( object ):
         self.srv = None
         self.log.info( "START" )
         self.cfg = CfgStruct( pfx={}, lmt=20, fmt=None, out=None,
-                              grh=None, dis='table', typ=False, lan=[] )
+                              grh=None, dis='table', typ=False, lan=[], par={} )
 
     def magic( self, line ):
         """
@@ -329,6 +330,18 @@ class SparqlConnection( object ):
             self.srv = SPARQLWrapper.SPARQLWrapper( param )
             return ['Endpoint set to: {}', param], 'magic'
 
+        elif cmd == 'qparam':
+
+            v = param.split(None, 1)
+            if len(v) == 0:
+                raise KrnlException( "missing %qparam name" )
+            elif len(v) == 1:
+                self.cfg.par.pop(v[0],None)
+                return ['Param deleted: {}', v[0]]
+            else:
+                self.cfg.par[v[0]] = v[1]
+                return ['Param set: {} = {}'] + v, 'magic'
+
         elif cmd == 'prefix':
 
             v = param.split(None, 1)
@@ -336,10 +349,10 @@ class SparqlConnection( object ):
                 raise KrnlException( "missing %prefix value" )
             elif len(v) == 1:
                 self.cfg.pfx.pop(v[0],None)
-                return ['Prefix deleted: {}', v[0]]
+                return ['Prefix deleted: {}', v[0]], 'magic'
             else:
-                self.cfg.pfx[prefix] = uri
-                return ['Prefix set: {} {}'] + v, 'magic' 
+                self.cfg.pfx[v[0]] = v[1]
+                return ['Prefix set: {} = {}'] + v, 'magic' 
 
         elif cmd == 'show':
 
@@ -435,11 +448,11 @@ class SparqlConnection( object ):
         if self.srv is None:
             raise KrnlException('no endpoint defined')             
 
-        # Add to the query all predefined SPARQL prefixes
+        # Prepend to the query all predefined SPARQL prefixes
         if self.cfg.pfx:
             prefix = '\n'.join( ( 'PREFIX {} {}'.format(*v) 
-                                  for v in self.cfg.pfx(iteritems) ) )
-            query = prefix  + '\n' + code
+                                  for v in self.cfg.pfx.items() ) )
+            query = prefix  + '\n' + query
 
         if self.log.isEnabledFor(logging.DEBUG):
             self.log.debug( "\n%50s%s", query, '...' if len(query)>50 else '' )
@@ -461,6 +474,8 @@ class SparqlConnection( object ):
             self.srv.setReturnFormat( fmt_req )
         if self.cfg.grh:
             self.srv.addParameter("default-graph-uri",self.cfg.grh)
+        for p in self.cfg.par.items():
+            self.srv.addParameter( *p )
         self.srv.setQuery( query )
 
         if not silent or self.cfg.out:
