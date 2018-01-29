@@ -53,6 +53,7 @@ mime_type = { SPARQLWrapper.JSON :  set(['application/sparql-results+json',
 magics = { 
     '%lsmagics' : [ '', 'list all magics'], 
     '%endpoint' : [ 'url', 'set SPARQL endpoint. REQUIRED.'],
+    '%auth_type|user|password': ['authentication type, user and password', 'set authentication type (DIGEST or BASIC), user and password. OPTIONAL.'],
     '%prefix' :   [ 'uri', 'set a persistent URI prefix for all queries'], 
     '%graph' :    [ 'uri', 'set default graph for the queries' ],
     '%format' :   [ 'JSON | N3 | any | default', 'set requested result format' ],
@@ -327,6 +328,15 @@ class SparqlConnection( object ):
         if cmd == 'endpoint':
 
             self.srv = SPARQLWrapper.SPARQLWrapper( param )
+
+            return ['Endpoint set to: {}', param], 'magic'
+
+        elif cmd == 'auth_type|user|password':
+
+            p = param.split('|')
+            self.srv.setHTTPAuth(p[0])
+            self.srv.setCredentials(p[1], p[2])
+
             return ['Endpoint set to: {}', param], 'magic'
 
         elif cmd == 'prefix':
