@@ -35,6 +35,7 @@ kernel_json = {
 	     "-m", PKGNAME, 
 	     "-f", "{connection_file}"],
     "display_name": DISPLAY_NAME,
+    "language": LANGUAGE,
     "name": KERNEL_NAME
 }
 
