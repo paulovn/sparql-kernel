@@ -52,10 +52,12 @@ mime_type = { SPARQLWrapper.JSON :  set(['application/sparql-results+json',
 # The list of implemented magics with their help, as a pair [param,help-text]
 magics = { 
     '%lsmagics' : [ '', 'list all magics'], 
-    '%endpoint' : [ 'url', 'set SPARQL endpoint. REQUIRED.'],
-    '%prefix' :   [ 'uri', 'set a persistent URI prefix for all queries'], 
-    '%graph' :    [ 'uri', 'set default graph for the queries' ],
-    '%format' :   [ 'JSON | N3 | any | default', 'set requested result format' ],
+    '%endpoint' : [ '<url>', 'set SPARQL endpoint. **REQUIRED**'],
+    '%auth':      ['(basic|digest) <username> <passwd>', 'send HTTP authentication'],
+    '%qparam' :   [ '<name> [<value>]', 'add (or delete) a persistent custom parameter to the endpoint query'],
+    '%prefix' :   [ '<name> [<uri>]', 'set (or delete) a persistent URI prefix for all queries'],
+    '%graph' :    [ '<uri>', 'set default graph for the queries' ],
+    '%format' :   [ 'JSON | N3 | XML | any | default', 'set requested result format' ],
     '%display' :  [ 'raw | table [withtypes] | diagram [svg|png] [withliterals]', 
                     'set display format' ],
     '%lang' :     [ '<lang> [...] | default | all',
@@ -135,7 +137,7 @@ def html_table( data, header=True, limit=None, withtype=False ):
             limit -= 1
             if not limit:
                 break
-    return (0, '') if rn<0 else (rn+1-header, html+u'</table>')
+    return (0, '') if rn < 0 else (rn+1-header, html+u'</table>')
 
 
 # ----------------------------------------------------------------------
@@ -157,23 +159,41 @@ def gtype( n ):
 
 
 def lang_match_json( row, hdr, accepted_languages ):
+    '''Find if the JSON row contains acceptable language data'''
+    if not accepted_languages:
+        return True
     languages = set( [ row[c].get('xml:lang') for c in hdr
                        if c in row and row[c]['type'] == 'literal' ] )
     return (not languages) or (languages & accepted_languages)
 
+
 def lang_match_rdf( triple, accepted_languages ):
+    '''Find if the RDF triple contains acceptable language data'''
+    if not accepted_languages:
+        return True
     languages = set( [ n.language for n in triple if isinstance(n,Literal) ] )
     return (not languages) or (languages & accepted_languages)
 
 
+XML_LANG = '{http://www.w3.org/XML/1998/namespace}lang'
 
-def json_iterator( hdr, rowlist, add_vtype=False, lang=[] ):
+def lang_match_xml(row, accepted_languages):
+    '''Find if the XML row contains acceptable language data'''
+    if not accepted_languages:
+        return True
+    column_languages = set()
+    for elem in row:
+        lang = elem[0].attrib.get(XML_LANG, None)
+        if lang:
+            column_languages.add(lang)
+    return (not column_languages) or (column_languages & accepted_languages)
+
+
+def json_iterator(hdr, rowlist, lang, add_vtype=False):
     """
     Convert a JSON response into a double iterable, by rows and columns
     Optionally add element type, and filter triples by language (on literals)
     """
-    if lang:
-        lang = set(lang)
     # Return the header row
     yield hdr if not add_vtype else ( (h, 'type') for h in hdr )
     # Now the data rows
@@ -184,13 +204,11 @@ def json_iterator( hdr, rowlist, add_vtype=False, lang=[] ):
                 for c in hdr )
 
 
-def rdf_iterator( graph, add_vtype=False, lang=[] ):
+def rdf_iterator(graph, lang, add_vtype=False):
     """
     Convert a Graph response into a double iterable, by triples and elements.
     Optionally add element type, and filter triples by language (on literals)
     """
-    if lang:
-        lang = set(lang)
     # Return the header row
     hdr = ('subject','predicate','object')
     yield hdr if not add_vtype else ( (h, 'type') for h in hdr )
@@ -203,7 +221,7 @@ def rdf_iterator( graph, add_vtype=False, lang=[] ):
 
 def render_json( result, cfg, **kwargs ):
     """
-    Render for output a result in JSON format
+    Render to output a result in JSON format
     """
     result = json.loads( result.decode('utf-8') )
     head = result['head']
@@ -218,8 +236,8 @@ def render_json( result, cfg, **kwargs ):
     vars = head['vars']
     nrow = len( result['results']['bindings'] )
     if cfg.dis == 'table':
-        j = json_iterator( vars, result['results']['bindings'], 
-                           add_vtype=cfg.typ, lang=cfg.lan )
+        j = json_iterator(vars, result['results']['bindings'], set(cfg.lan),
+                          add_vtype=cfg.typ)
         n, data = html_table( j, limit=cfg.lmt, withtype=cfg.typ )
         data += div( 'Total: {}, Shown: {}', nrow, n, css="tinfo" )
         data = {'text/html' : div(data) }
@@ -230,11 +248,66 @@ def render_json( result, cfg, **kwargs ):
              'metadata' : {} }
 
 
+def xml_row(row, lang):
+    '''
+    Generator for an XML row
+    '''
+    for elem in row:
+        name = elem.get('name')
+        child = elem[0]
+        ftype = re.sub(r'\{[^}]+\}', '', child.tag)
+        if ftype == 'literal':
+            ftype = '{}, {}'.format(ftype, child.attrib.get(XML_LANG, 'none'))
+        yield (name, (child.text, ftype))
+
+
+def xml_iterator(columns, rowlist, lang, add_vtype=False):
+    """
+    Convert an XML response into a double iterable, by rows and columns
+    Options are: filter triples by language (on literals), add element type
+    """
+    # Return the header row
+    yield columns if not add_vtype else ((h, 'type') for h in columns)
+    # Now the data rows
+    for row in rowlist:
+        if not lang_match_xml(row, lang):
+            continue
+        rowdata = {nam: val for nam, val in xml_row(row, lang)}
+        yield (rowdata.get(field, ('', '')) for field in columns)
+
+
+def render_xml(result, cfg, **kwargs):
+    """
+    Render to output a result in XML format
+    """
+    # Raw mode
+    if cfg.dis == 'raw':
+        return {'data': {'text/plain': result.decode('utf-8')},
+                'metadata': {}}
+    # Table
+    try:
+        import xml.etree.cElementTree as ET
+    except ImportError:
+        import xml.etree.ElementTree as ET
+    root = ET.fromstring(result)
+    try:
+        ns = {'ns': re.match(r'\{([^}]+)\}', root.tag).group(1)}
+    except Exception:
+        raise KrnlException('Invalid XML data: cannot get namespace')
+    columns = [c.attrib['name'] for c in root.find('ns:head', ns)]
+    results = root.find('ns:results', ns)
+    nrow = len(results)
+    j = xml_iterator(columns, results, set(cfg.lan), add_vtype=cfg.typ)
+    n, data = html_table(j, limit=cfg.lmt, withtype=cfg.typ)
+    data += div('Total: {}, Shown: {}', nrow, n, css="tinfo")
+    return {'data': {'text/html': div(data)},
+            'metadata': {}}
+
+
 def render_graph( result, cfg, **kwargs ):
     """
-    Render for output a result that can be parsed as an RDF graph
+    Render to output a result that can be parsed as an RDF graph
     """
-
     # Mapping from MIME types to formats accepted by RDFlib
     rdflib_formats = { 'text/rdf+n3' : 'n3',
                        'text/turtle' : 'turtle',
@@ -265,7 +338,7 @@ def render_graph( result, cfg, **kwargs ):
         except Exception as e:
             raise KrnlException( 'Exception while drawing graph: {!r}', e )
     elif display == 'table':
-        it = rdf_iterator(g,add_vtype=cfg.typ, lang=cfg.lan)
+        it = rdf_iterator(g, set(cfg.lan), add_vtype=cfg.typ)
         n, data = html_table(it,limit=cfg.lmt, withtype=cfg.typ)
         data += div( 'Shown: {}, Total rows: {}', n if cfg.lmt else 'all',
                      len(g), css="tinfo" )
@@ -301,8 +374,8 @@ class SparqlConnection( object ):
         self.log = logger or logging.getLogger(__name__)
         self.srv = None
         self.log.info( "START" )
-        self.cfg = CfgStruct( pfx={}, lmt=20, fmt=None, out=None,
-                              grh=None, dis='table', typ=False, lan=[] )
+        self.cfg = CfgStruct( pfx={}, lmt=20, fmt=None, out=None, aut=None,
+                              grh=None, dis='table', typ=False, lan=[], par={} )
 
     def magic( self, line ):
         """
@@ -318,7 +391,7 @@ class SparqlConnection( object ):
 
         # Split line into command & parameters
         try:
-            cmd, param = line.split(None,1)
+            cmd, param = line.split(None, 1)
         except ValueError:
             raise KrnlException( "invalid magic: {}", line )
         cmd = cmd[1:].lower()
@@ -329,6 +402,29 @@ class SparqlConnection( object ):
             self.srv = SPARQLWrapper.SPARQLWrapper( param )
             return ['Endpoint set to: {}', param], 'magic'
 
+        elif cmd == 'auth':
+
+            auth_data = param.split(None, 2)
+            if auth_data[0].lower() == 'none':
+                self.cfg.aut = None
+                return ['HTTP authentication: None'], 'magic'
+            if auth_data and len(auth_data) != 3:
+                raise KrnlException("invalid %auth magic")
+            self.cfg.aut = auth_data
+            return ['HTTP authentication: {}', auth_data], 'magic'
+
+        elif cmd == 'qparam':
+
+            v = param.split(None, 1)
+            if len(v) == 0:
+                raise KrnlException( "missing %qparam name" )
+            elif len(v) == 1:
+                self.cfg.par.pop(v[0],None)
+                return ['Param deleted: {}', v[0]]
+            else:
+                self.cfg.par[v[0]] = v[1]
+                return ['Param set: {} = {}'] + v, 'magic'
+
         elif cmd == 'prefix':
 
             v = param.split(None, 1)
@@ -336,10 +432,10 @@ class SparqlConnection( object ):
                 raise KrnlException( "missing %prefix value" )
             elif len(v) == 1:
                 self.cfg.pfx.pop(v[0],None)
-                return ['Prefix deleted: {}', v[0]]
+                return ['Prefix deleted: {}', v[0]], 'magic'
             else:
-                self.cfg.pfx[prefix] = uri
-                return ['Prefix set: {} {}'] + v, 'magic' 
+                self.cfg.pfx[v[0]] = v[1]
+                return ['Prefix set: {} = {}'] + v, 'magic' 
 
         elif cmd == 'show':
 
@@ -357,6 +453,7 @@ class SparqlConnection( object ):
 
             fmt_list = { 'JSON' : SPARQLWrapper.JSON, 
                          'N3' :  SPARQLWrapper.N3,
+                         'XML' :  SPARQLWrapper.XML,
                          'DEFAULT' : None,
                          'ANY' : False }
             try:
@@ -435,11 +532,11 @@ class SparqlConnection( object ):
         if self.srv is None:
             raise KrnlException('no endpoint defined')             
 
-        # Add to the query all predefined SPARQL prefixes
+        # Prepend to the query all predefined SPARQL prefixes
         if self.cfg.pfx:
             prefix = '\n'.join( ( 'PREFIX {} {}'.format(*v) 
-                                  for v in self.cfg.pfx(iteritems) ) )
-            query = prefix  + '\n' + code
+                                  for v in self.cfg.pfx.items() ) )
+            query = prefix  + '\n' + query
 
         if self.log.isEnabledFor(logging.DEBUG):
             self.log.debug( "\n%50s%s", query, '...' if len(query)>50 else '' )
@@ -456,11 +553,18 @@ class SparqlConnection( object ):
 
         # Set the query
         self.srv.resetQuery()
-        self.log.debug(u'request format: %s  display: %s', fmt_req, self.cfg.dis)
+        if self.cfg.aut:
+            self.srv.setHTTPAuth(self.cfg.aut[0])
+            self.srv.setCredentials(*self.cfg.aut[1:])
+        else:
+            self.srv.setCredentials(None, None)
+        self.log.debug(u'request-format: %s  display: %s', fmt_req, self.cfg.dis)
         if fmt_req:
             self.srv.setReturnFormat( fmt_req )
         if self.cfg.grh:
             self.srv.addParameter("default-graph-uri",self.cfg.grh)
+        for p in self.cfg.par.items():
+            self.srv.addParameter( *p )
         self.srv.setQuery( query )
 
         if not silent or self.cfg.out:
@@ -506,16 +610,18 @@ class SparqlConnection( object ):
                 fmt = (fmt_req if fmt_req else
                        SPARQLWrapper.JSON if fmt_got in mime_type[SPARQLWrapper.JSON] else
                        SPARQLWrapper.N3 if fmt_got in mime_type[SPARQLWrapper.N3] else
+                       SPARQLWrapper.XML if fmt_got in mime_type[SPARQLWrapper.XML] else
                        'text/plain' if self.cfg.dis == 'raw' else
-                       fmt_got if fmt_got in ('text/plain','text/html') else
+                       fmt_got if fmt_got in ('text/plain', 'text/html') else
                        'text/plain')
                 #self.log.debug(u'format: req=%s got=%s rend=%s',fmt_req,fmt_got,fmt)
 
                 # Can't process? Just write the data as is
-                if fmt in ('text/plain','text/html'):
-                    r = { 'data': { fmt : data }, 'metadata' : {} }
+                if fmt in ('text/plain', 'text/html'):
+                    out = data.decode('utf-8') if isinstance(data, bytes) else data
+                    r = {'data': {fmt: out}, 'metadata': {}}
                 else:
-                    f = render_json if fmt == SPARQLWrapper.JSON else render_graph
+                    f = render_json if fmt == SPARQLWrapper.JSON else render_xml if fmt == SPARQLWrapper.XML else render_graph
                     r = f( data, self.cfg, format=fmt_got )
                     now = datetime.datetime.utcnow()
                     self.log.debug( u'response formatted=%s', now-start )

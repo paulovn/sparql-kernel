@@ -12,11 +12,11 @@ Requirements
 ------------
 
 The kernel has only been tried with Jupyter 4.x. It works with Python 2.7 and
-Python 3 (tested with Python 3.4).
+Python 3 (tested with Python 3.5).
 
-The above mentioned `SPARQLWrapper`_ & `rdflib`_ are required dependencies 
-(they are marked as such, so they will automatically be installed with the 
-package if needed).
+The above mentioned `SPARQLWrapper`_ & `rdflib`_ Python packages are required
+dependencies (they are marked as such, so they will automatically be installed
+with the package if needed).
 
 An optional dependency is `Graphviz`_, needed to create diagrams for RDF result 
 graphs (Graphviz's ``dot`` program must be available for that to work).
@@ -132,22 +132,54 @@ Its syntax is::
     %endpoint <url>
 
 and it simply defines the SPARQL endpoint for all subsequent queries. 
-It remains active until superceded by another ``%endpoint`` magic.
+It remains active until superseded by another ``%endpoint`` magic.
 
 
+``%qparam``
+...........
+
+Define a custom additional parameter to be sent with every query. Its syntax
+is::
+
+  %qparam <name> <value>
+
+and it will add the ``name=value`` parameter to every subsequent query (it can
+be used e.g. to send API keys, or any parameter required by the endpoint).
+
+Any number of parameters can be defined; they will all be added to the queries
+executed after their definitions. To remove a parameter, use a line with no
+value::
+
+  %qparam <name>
+
+
+``%auth``
+...........
+
+Define HTTP authentication to send to the backend. Its syntax is::
+
+   %auth (basic | digest) <username> <password>
+
+Once defined, it will be sent to the backend on every subsequent query. To
+remove a defined authentication, just use::
+
+   %auth none
+
+  
 ``%format``
 ............
 
 Sets the data format requested to the SPARQL endpoint::
 
-    %format JSON | N3  | any | default
+    %format JSON | XML | N3  | any | default
 
 where:
 
 * ``JSON`` requests *application/sparql-results+json* format
+* ``XML`` requests *application/sparql-results+xml* format
 * ``N3`` requests the endpoint to provide results in *text/rdf+n3* format
-* ``any`` lets the endpoint return any format it pleases (note that if the returned
-  format is not JSON or N3, it will be rendered as raw text)
+* ``any`` lets the endpoint return any format it pleases (note that if the
+  returned format is not JSON, XML or N3, it will be rendered as raw text)
 * ``default`` selects a default format depending on the requested SPARQL
   operation (N3 for ``DESCRIBE`` and ``CONSTRUCT``, JSON for ``SELECT``, *any*
   for the rest)
@@ -175,7 +207,7 @@ There are three possible display formats:
   hyperlinks).
 
 Default is ``table``. Note that if the result format is not a supported format
-for a table or diagram representation (i.e. it is not JSON or N3), then raw
+for a table or diagram representation (i.e. it is not JSON/XML or N3), then raw
 format will be used.
 
 
