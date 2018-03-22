@@ -1,4 +1,19 @@
-v. 1.0.6
+v. 1.1.0
+* bugfix: `%lang all` magic didn't work
+* new accepted format: xml (MIME type application/sparql-results+xml)
+* new magic: `%auth <type> <user> <pwd>` (proposed by asanchez75) 
+* bugfix: added LANGUAGE to kernel JSON (by laughedelic)
 
-* bugfix: hamdling of `%prefix` magics
+v. 1.0.6
+* bugfix: handling of `%prefix` magics
 * new magic: `%qparam`, to add custom parameters to the query URL
+
+v. 1.0.5
+* refactored MIME handling (requested,accepted,rendered)
+* new option %format any
+* check empty graph and display warning
+* default format is table
+* protect against unicode decoding errors in exceptions (Python2)
+* updated example
+
+
