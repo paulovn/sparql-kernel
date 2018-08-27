@@ -11,6 +11,7 @@ import json
 import datetime
 import logging
 import pprint
+import os.path
 
 from IPython.utils.tokenutil import token_at_cursor, line_at_cursor
 from ipykernel.kernelbase import Kernel
@@ -53,7 +54,7 @@ mime_type = { SPARQLWrapper.JSON :  set(['application/sparql-results+json',
 magics = { 
     '%lsmagics' : [ '', 'list all magics'], 
     '%endpoint' : [ '<url>', 'set SPARQL endpoint. **REQUIRED**'],
-    '%auth':      ['(basic|digest) <username> <passwd>', 'send HTTP authentication'],
+    '%auth':      ['(basic|digest|none) <username> <passwd>', 'send HTTP authentication'],
     '%qparam' :   [ '<name> [<value>]', 'add (or delete) a persistent custom parameter to the endpoint query'],
     '%header' :   [ '<string> | OFF', 'add a persistent header line before the query, or delete all defined headers'],
     '%prefix' :   [ '<name> [<uri>]', 'set (or delete) a persistent URI prefix for all queries'],
@@ -243,7 +244,9 @@ def render_json( result, cfg, **kwargs ):
         data += div( 'Total: {}, Shown: {}', nrow, n, css="tinfo" )
         data = {'text/html' : div(data) }
     else:
-        data = {'text/plain' : unicode( pprint.pformat(result) ) }
+        result = json.dumps( result,
+                             ensure_ascii=False, indent=2, sort_keys=True)
+        data = {'text/plain' : unicode(result) }
     
     return { 'data': data ,
              'metadata' : {} }
@@ -507,7 +510,7 @@ class SparqlConnection( object ):
                 return [ 'no output file' ], 'magic'
             else:
                 self.cfg.out = param
-                return [ 'Output file: {}', param ], 'magic'
+                return [ 'Output file: {}', os.path.abspath(param) ], 'magic'
 
         elif cmd == 'log':
 
