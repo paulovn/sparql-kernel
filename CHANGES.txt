@@ -1,3 +1,9 @@
+v. 1.2.0
+* added %header magic (by gpotdevin)
+* fixed JSON format for raw format (reported by BoPeng)
+* full output file path for magic message
+* improved PEP8 compliance
+
 v. 1.1.0
 * bugfix: `%lang all` magic didn't work
 * new accepted format: xml (MIME type application/sparql-results+xml)

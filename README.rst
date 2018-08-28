@@ -153,6 +153,14 @@ value::
   %qparam <name>
 
 
+``%header``
+............
+Adds a certain header to each sparql queries. This can be used to set some 
+(potentially non SPARQL) command in the query. For instance virtuoso endpoints 
+accept the _define_ keyword which can be used to trigger the server reasoner.
+
+
+
 ``%auth``
 ...........
 
