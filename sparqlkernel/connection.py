@@ -530,10 +530,12 @@ class SparqlConnection( object ):
             if param.upper() == 'OFF':
                 num = len(self.cfg.hdr)
                 self.cfg.hdr = []
-                return ['all headers deleted ({})', num], 'magic'
+                return ['All headers deleted ({})', num], 'magic'
             else:
+                if param in self.cfg.hdr:
+                    return ['Header skipped (repeated)'], 'magic'
                 self.cfg.hdr.append(param)
-                return ['header added: {}', param], 'magic'
+                return ['Header added: {}', param], 'magic'
 
         else:
                 raise KrnlException( "magic not found: {}", cmd )
@@ -602,7 +604,7 @@ class SparqlConnection( object ):
 
                 # Check we received a MIME type according to what we requested
                 if fmt_req and fmt_got not in mime_type[fmt_req]:
-                    raise KrnlException(u'Unexpected response format: {}',fmt_got)
+                    raise KrnlException(u'Unexpected response format: {} (requested: {})', fmt_got, fmt_req)
 
                 # Get the result
                 data = b''.join( (line for line in res) )

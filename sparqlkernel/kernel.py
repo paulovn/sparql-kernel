@@ -33,6 +33,7 @@ def is_magic( token, token_start, buf ):
 def token_at_cursor( code, pos=0 ):
     """
     Find the token present at the passed position in the code buffer
+     :return (tuple): a pair (token, start_position)
     """
     l = len(code)
     end = start = pos
