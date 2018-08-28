@@ -55,7 +55,7 @@ magics = {
     '%endpoint' : [ '<url>', 'set SPARQL endpoint. **REQUIRED**'],
     '%auth':      ['(basic|digest) <username> <passwd>', 'send HTTP authentication'],
     '%qparam' :   [ '<name> [<value>]', 'add (or delete) a persistent custom parameter to the endpoint query'],
-    '%header' :   [ '<value>', 'set (or delete) a persistent header to all queries (precedes all other lines of the SPARQL query)'],
+    '%header' :   [ '<string> | OFF', 'add a persistent header line before the query, or delete all defined headers'],
     '%prefix' :   [ '<name> [<uri>]', 'set (or delete) a persistent URI prefix for all queries'],
     '%graph' :    [ '<uri>', 'set default graph for the queries' ],
     '%format' :   [ 'JSON | N3 | XML | any | default', 'set requested result format' ],
@@ -375,7 +375,7 @@ class SparqlConnection( object ):
         self.log = logger or logging.getLogger(__name__)
         self.srv = None
         self.log.info( "START" )
-        self.cfg = CfgStruct( header={}, pfx={}, lmt=20, fmt=None, out=None, aut=None,
+        self.cfg = CfgStruct( hdr=[], pfx={}, lmt=20, fmt=None, out=None, aut=None,
                               grh=None, dis='table', typ=False, lan=[], par={} )
 
     def magic( self, line ):
@@ -523,15 +523,14 @@ class SparqlConnection( object ):
                 raise KrnlException( 'unknown log level: {}', param )
 
         elif cmd == 'header':
-            v = param.split(None, 1)
-            if len(v) == 0:
-                raise KrnlException("missing %header value")
-            elif len(v) == 1:
-                self.cfg.header.pop(v[0], None)
-                return ['header deleted: {}', v[0]], 'magic'
+
+            if param.upper() == 'OFF':
+                num = len(self.cfg.hdr)
+                self.cfg.hdr = []
+                return ['all headers deleted ({})', num], 'magic'
             else:
-                self.cfg.header[v[0]] = v[1]
-                return ['header set: {} = {}'] + v, 'magic'
+                self.cfg.hdr.append(param)
+                return ['header added: {}', param], 'magic'
 
         else:
                 raise KrnlException( "magic not found: {}", cmd )
@@ -552,10 +551,8 @@ class SparqlConnection( object ):
 
         # Prepend to the query all predefined Header entries
         # The header should be before the prefix and other sparql commands
-        if self.cfg.header:
-            header = '\n'.join( ( '{}'.format(v[1])
-                                  for v in self.cfg.header.items() ) )
-            query = header  + '\n' + query
+        if self.cfg.hdr:
+            query = '\n'.join(self.cfg.hdr) + '\n' + query
 
         if self.log.isEnabledFor(logging.DEBUG):
             self.log.debug( "\n%50s%s", query, '...' if len(query)>50 else '' )
