@@ -107,8 +107,8 @@ Valid combinations are thus:
   first SPARQL keyword the cell is assumed to be in SPARQL mode, and line 
   magics will *not* be recognized as such).
 
-Comment lines (lines starting with ``#``) can be freely interspersed between 
-line magics or SPARQL queries.
+Comment lines (lines starting with ``#`` or any sequence of spaces plus ``#``)
+can be freely interspersed between line magics or SPARQL queries.
 
 Magics also feature autocompletion and contextual help. Furthermore, there is 
 a special magic ``%lsmagics``; when executed on a cell it will output the list 
@@ -159,6 +159,32 @@ Adds a certain header to each sparql queries. This can be used to set some
 (potentially non SPARQL) command in the query. For instance virtuoso endpoints 
 accept the _define_ keyword which can be used to trigger the server reasoner.
 
+
+``%returnrawquery``
+............
+To be used with the 'On' or 'Off' keyword to activate or deactivate.
+
+Will skip the server query and directly print out the full SPARQL query text including its headers, prefixes.
+This allows to construct a SPARQL query using the sparql-kernel and finally retrieve the full query (or debug
+it using the SPARQL query validator, etc.).
+
+``%shorthand``
+............
+Allows to define shorthands which get replaced in the SPARQL query. Its syntax is::
+
+    %shorthand shortcut replaced_string
+
+Ex. "%shorthand label rdfs:label" will replace any string "label" in the query with
+"rdfs:label".
+
+``%outfile``
+...........
+
+Allows to write to a file the raw answer from the server. Its syntax is::
+
+   %outfile absolut_path_to_file
+
+"%outfile NONE" will deactivate this.
 
 
 ``%auth``
