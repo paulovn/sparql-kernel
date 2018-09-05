@@ -145,6 +145,7 @@ class SparqlKernel(Kernel):
         # Split lines and remove empty lines & comments
         code_noc = [line.strip() for line in code.split('\n')
                     if line and line.strip() and line.strip()[0] != '#']
+
         if not code_noc:
             return self._send(None)
 

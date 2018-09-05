@@ -281,7 +281,6 @@ def xml_iterator(columns, rowlist, lang, add_vtype=False):
         rowdata = {nam: val for nam, val in xml_row(row, lang)}
         yield (rowdata.get(field, ('', '')) for field in columns)
 
-
 def render_xml(result, cfg, **kwargs):
     """
     Render to output a result in XML format
@@ -537,7 +536,6 @@ class SparqlConnection(object):
                     return ['Header skipped (repeated)'], 'magic'
                 self.cfg.hdr.append(param)
                 return ['Header added: {}', param], 'magic'
-
         elif cmd == 'returnrawquery':
             if param and param.lower() in ["on", "true", 'none']:
                 self.cfg.returnrawquery = True
@@ -582,7 +580,6 @@ class SparqlConnection(object):
         # The header should be before the prefix and other sparql commands
         if self.cfg.hdr:
             query = '\n'.join(self.cfg.hdr) + '\n' + query
-        
         # replace shorthands
         if self.cfg.shorthand:
             for sh in self.cfg.shorthand.keys():
