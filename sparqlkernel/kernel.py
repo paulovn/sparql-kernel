@@ -143,7 +143,7 @@ class SparqlKernel(Kernel):
 
         # Split lines and remove empty lines & comments
         code_noc = [line.strip() for line in code.split('\n')
-                    if line and line[0] != '#']
+                    if line and line[0] != '##'] # changed # to ##. cf many uris in obofoundry do use '#' as char.
         if not code_noc:
             return self._send(None)
 
