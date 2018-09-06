@@ -66,6 +66,9 @@ magics = {
     '%show':     ['<n> | all',
                     'maximum number of shown results'],
     '%outfile':  ['<filename> | NONE', 'save raw output to a file (use "%d" in name to add cell number, "NONE" to cancel saving)'],
+    '%returnrawquery': ['On | Off', 'skips the actual server query and print the query string'],
+    '%shorthand': ['<shortcut> | <full text>', 'replaces all "shortcut" string with "full text" in the query string. '
+                                              'Use <shortcut> to suppress the corresponding shorthand.'],
     '%log':      ['critical | error | warning | info | debug',
                   'set logging level'],
 }
@@ -278,7 +281,6 @@ def xml_iterator(columns, rowlist, lang, add_vtype=False):
         rowdata = {nam: val for nam, val in xml_row(row, lang)}
         yield (rowdata.get(field, ('', '')) for field in columns)
 
-
 def render_xml(result, cfg, **kwargs):
     """
     Render to output a result in XML format
@@ -378,7 +380,8 @@ class SparqlConnection(object):
         self.srv = None
         self.log.info("START")
         self.cfg = CfgStruct(hdr=[], pfx={}, lmt=20, fmt=None, out=None, aut=None,
-                             grh=None, dis='table', typ=False, lan=[], par={})
+                             grh=None, dis='table', typ=False, lan=[], par={},
+                             returnrawquery=False, shorthand={})
 
     def magic(self, line):
         """
@@ -524,7 +527,6 @@ class SparqlConnection(object):
                 raise KrnlException('unknown log level: {}', param)
 
         elif cmd == 'header':
-
             if param.upper() == 'OFF':
                 num = len(self.cfg.hdr)
                 self.cfg.hdr = []
@@ -534,6 +536,28 @@ class SparqlConnection(object):
                     return ['Header skipped (repeated)'], 'magic'
                 self.cfg.hdr.append(param)
                 return ['Header added: {}', param], 'magic'
+        elif cmd == 'returnrawquery':
+            if param and param.lower() in ["on", "true", 'none']:
+                self.cfg.returnrawquery = True
+                return ['Raw query mode activated'], 'magic'
+            elif not param or param.lower() in ["off", 'false']:
+                self.cfg.returnrawquery = False
+                return ['Raw query mode deactivated'], 'magic'
+
+        elif cmd == 'shorthand':
+            v = param.split(None, 1)
+            if len(v) == 0:
+                raise KrnlException("missing %shorthand value")
+            elif len(v) == 1:
+                if v[0] == "reset":
+                    self.cfg.shorthand = {}
+                    return ['all shorthands deleted'], 'magic'
+                else:
+                    self.cfg.shorthand.pop(v[0], None)
+                    return ['shorthand deleted: {}', v[0]], 'magic'
+            else:
+                self.cfg.shorthand[v[0]] = v[1]
+                return ['shorthand set: {} = {}'] + v, 'magic'
 
         else:
             raise KrnlException("magic not found: {}", cmd)
@@ -556,6 +580,10 @@ class SparqlConnection(object):
         # The header should be before the prefix and other sparql commands
         if self.cfg.hdr:
             query = '\n'.join(self.cfg.hdr) + '\n' + query
+        # replace shorthands
+        if self.cfg.shorthand:
+            for sh in self.cfg.shorthand.keys():
+                query = query.replace(sh, self.cfg.shorthand[sh])
 
         if self.log.isEnabledFor(logging.DEBUG):
             self.log.debug("\n%50s%s", query, '...' if len(query) > 50 else '')
@@ -569,6 +597,19 @@ class SparqlConnection(object):
             fmt_req = SPARQLWrapper.N3
         else:
             fmt_req = False
+
+        # if raw query is on only display the query text
+        if self.cfg.returnrawquery:
+            # reproduce the code to suppress all comment lines
+            code_noc = [line.strip() for line in query.split('\n')
+                        if line and line.strip() and line.strip()[0] != '#']
+            # and coin the query text again
+            query = ''
+            for line in code_noc:
+                query = query + line + '\n'
+            fmt = 'text/plain'
+            r = {'data': {fmt: query}, 'metadata': {}}
+            return r
 
         # Set the query
         self.srv.resetQuery()
