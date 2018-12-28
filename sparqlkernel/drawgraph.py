@@ -148,7 +148,7 @@ def label(x, gr, preferred_languages=None):
             for l in preferred_languages:
                 if l in labels:
                     return labels[l]
-        return labels.itervalues().next()
+        return labels.values().next()
 
     # No labels available. Try to generate a QNAME, or else, the string itself
     try:
