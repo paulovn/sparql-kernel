@@ -53,6 +53,7 @@ mime_type = { SPARQLWrapper.JSON:   set(['application/sparql-results+json',
 magics = {
     '%lsmagics': ['', 'list all magics'], 
     '%endpoint': ['<url>', 'set SPARQL endpoint. **REQUIRED**'],
+    '%method':   ['GET | POST', 'set request method (default: GET)' ],
     '%auth':     ['(basic|digest|none) <username> <passwd>', 'send HTTP authentication'],
     '%qparam':   ['<name> [<value>]', 'add (or delete) a persistent custom parameter to the endpoint query'],
     '%header':   ['<string> | OFF', 'add a persistent header line before the query, or delete all defined headers'],
@@ -377,7 +378,7 @@ class SparqlConnection(object):
         self.log = logger or logging.getLogger(__name__)
         self.srv = None
         self.log.info("START")
-        self.cfg = CfgStruct(hdr=[], pfx={}, lmt=20, fmt=None, out=None, aut=None,
+        self.cfg = CfgStruct(hdr=[], pfx={}, lmt=20, fmt=None, out=None, aut=None, met="GET",
                              grh=None, dis='table', typ=False, lan=[], par={})
 
     def magic(self, line):
@@ -403,6 +404,7 @@ class SparqlConnection(object):
         if cmd == 'endpoint':
 
             self.srv = SPARQLWrapper.SPARQLWrapper(param)
+            self.srv.setMethod(self.cfg.met)
             return ['Endpoint set to: {}', param], 'magic'
 
         elif cmd == 'auth':
@@ -415,6 +417,16 @@ class SparqlConnection(object):
                 raise KrnlException("invalid %auth magic")
             self.cfg.aut = auth_data
             return ['HTTP authentication: {}', auth_data], 'magic'
+
+        elif cmd == "method":
+
+            methods = [ "POST", "GET" ]
+            try:
+                assert param.upper() in methods
+                self.cfg.met = param.upper()
+            except AssertionError:
+                raise KrnlException('invalid request method: {}\nValid methods are: {!s}', param, methods)
+            return ['Request method: {}', self.cfg.met], 'magic'
 
         elif cmd == 'qparam':
 
@@ -572,6 +584,7 @@ class SparqlConnection(object):
 
         # Set the query
         self.srv.resetQuery()
+        self.srv.setMethod(self.cfg.met)
         if self.cfg.aut:
             self.srv.setHTTPAuth(self.cfg.aut[0])
             self.srv.setCredentials(*self.cfg.aut[1:])
