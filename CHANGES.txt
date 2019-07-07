@@ -1,5 +1,11 @@
+v. 1.3.0
+* improved error messages on HTTP errors
+* strip whitespace in all lines, including comment lines (@gpotdevin)
+* added new magics: %method (@alexisdimi), %http_header
+* added new option `none` to %format magic
+
 v. 1.2.1
-* bugfix (@blake-regalia): in label selection for graph nodes,  itervalues() does not exist in python3
+* bugfix (@blake-regalia, @alexisdimi): in label selection for graph nodes, itervalues() does not exist in python3
 * keep order in preferred languages
 * PEP8 reformatting
 

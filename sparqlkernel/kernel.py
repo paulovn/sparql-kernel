@@ -142,7 +142,8 @@ class SparqlKernel(Kernel):
         self._klog.info("[%.30s] [%d] [%s]", code, silent, user_expressions)
 
         # Split lines and remove empty lines & comments
-        code_noc = [line.strip() for line in code.split('\n')
+        code_noc = [line for line in
+                    map(lambda x: x.strip(), code.split('\n'))
                     if line and line[0] != '#']
         if not code_noc:
             return self._send(None)
