@@ -1,3 +1,8 @@
+v. 1.2.1
+* bugfix (@blake-regalia): in label selection for graph nodes,  itervalues() does not exist in python3
+* keep order in preferred languages
+* PEP8 reformatting
+
 v. 1.2.0
 * added %header magic (by gpotdevin)
 * fixed JSON format for raw format (reported by BoPeng)
