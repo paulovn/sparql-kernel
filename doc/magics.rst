@@ -63,6 +63,18 @@ Set logging level. Available levels are: *critical*, *error*,  *warning*,
 *info*, *debug*.
 
 
+``%load``
+---------
+
+Open a file containing magic lines, read them and process them. Syntax is just::
+
+  %load <filename>
+
+and the file can contain only magic lines (full magics, starting with ``%``),
+or empty/comment lines.
+
+  
+
 2. Request creation
 ===================
 
@@ -172,6 +184,20 @@ remove a defined authentication, just use::
 
    %auth none
 
+Either of the three components of the authentication (*method*, *user*, *password*)
+can be read from environment variables, by using the ``env:`` prefix. E.g.::
+
+  %auth basic env:ENDPOINT_USERNAME env:ENDPOINT_PASSWD
+
+will use basic authentication, reading the username from the environment
+variable ``ENDPOINT_USERNAME`` and the password from the environment variable
+``ENDPOINT_PASSWD``. This allows keeping credentials out of the notebook
+(another way would be to use the ``%load`` magic).
+
+Note that, when printing out magic evaluation in the notebook, the password is
+never shown.
+
+
 
 3. Query formulation
 ====================
@@ -180,7 +206,7 @@ remove a defined authentication, just use::
 ``%prefix``
 -----------
 
-Set a URI prefix for all subsequent queries. Its syntax is::
+Define a URI prefix available for all subsequent queries. Its syntax is::
 
   %prefix <name> <uri>
 
@@ -199,14 +225,14 @@ Set the default graph for all queries, as::
 
   %graph <uri>
 
-It is equivalent to using the ``FROM`` SPARQL keyword in a query, but when it
-is defined is automatically sent in all queries.
+It is equivalent to using the ``FROM`` SPARQL keyword in a query, but when
+defined it is automatically sent in all queries.
 
 
 ``%header``
 -----------
 
-Prepends a certain textual header line to all sparql queries. This can be used
+Prepends a certain textual header line to all SPARQL queries. This can be used
 to set some (potentially non SPARQL) command in the query.
 
 For instance Virtuoso endpoints accept the *DEFINE* keyword which can be used
@@ -273,8 +299,12 @@ Default is 20. It is also possible to use::
 ``%lang``
 ---------
 
-Selects the language chosen for the RDF labels, in either the *table* or the
+Selects the language(s) preferred for the RDF labels, in either the *table* or the
 *diagram* formats
+
+Syntax is::
+
+  %lang <lang> [...] | default | all
 
 
 ``%outfile``
