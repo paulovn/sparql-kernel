@@ -1,21 +1,22 @@
 """
-The main kernel class for Jupyter. 
+The main kernel class for Jupyter.
 Interact with the notebook and process all frontend requests.
 """
+
+import logging
 
 from ipykernel.kernelbase import Kernel
 from traitlets import List
 
-import logging
-
 import SPARQLWrapper
-from SPARQLWrapper.SPARQLExceptions import SPARQLWrapperException
 
 from .constants import __version__, LANGUAGE
-from .utils import is_collection, data_msg
+from .utils import data_msg
 from .setlogging import set_logging
 from .language import sparql_names, sparql_help
-from .connection import SparqlConnection, KrnlException, magics, magic_help
+from .connection import SparqlConnection
+from .magics import split_lines, process_magic, MAGICS, MAGIC_HELP
+
 # IPython.core.display.HTML
 
 
@@ -35,10 +36,10 @@ def token_at_cursor(code, pos=0):
     Find the token present at the passed position in the code buffer
      :return (tuple): a pair (token, start_position)
     """
-    l = len(code)
+    cl = len(code)
     end = start = pos
     # Go forwards while we get alphanumeric chars
-    while end < l and code[end].isalpha():
+    while end < cl and code[end].isalpha():
         end += 1
     # Go backwards while we get alphanumeric chars
     while start > 0 and code[start-1].isalpha():
@@ -142,8 +143,7 @@ class SparqlKernel(Kernel):
         self._klog.info("[%.30s] [%d] [%s]", code, silent, user_expressions)
 
         # Split lines and remove empty lines & comments
-        code_noc = [line.strip() for line in code.split('\n')
-                    if line and line[0] != '#']
+        code_noc = split_lines(code)
         if not code_noc:
             return self._send(None)
 
@@ -158,7 +158,7 @@ class SparqlKernel(Kernel):
 
             # Process magics. Once done, remove them from the query buffer
             if magic_lines:
-                out = [self._k.magic(line) for line in magic_lines]
+                out = [process_magic(line, self._k.cfg) for line in magic_lines]
                 self._send(out, 'multi', silent=silent)
                 code = '\n'.join(code_noc[len(magic_lines):])
 
@@ -188,17 +188,17 @@ class SparqlKernel(Kernel):
         if not is_magic(token, start, code):
             info = sparql_help.get(token.upper(), None)
         elif token == '%':
-            info = magic_help
+            info = MAGIC_HELP
         else:
-            info = magics.get(token, None)
+            info = MAGICS.get(token, None)
             if info:
                 info = '{} {}\n\n{}'.format(token, *info)
 
         return {'status': 'ok',
                 'data': {'text/plain': info},
                 'metadata': {},
-                'found': info is not None
-               }
+                'found': info is not None}
+
 
     # -----------------------------------------------------------------
 
@@ -211,7 +211,7 @@ class SparqlKernel(Kernel):
         token, start = token_at_cursor(code, cursor_pos)
         tkn_low = token.lower()
         if is_magic(token, start, code):
-            matches = [k for k in magics.keys() if k.startswith(tkn_low)]
+            matches = [k for k in MAGICS.keys() if k.startswith(tkn_low)]
         else:
             matches = [sparql_names[k] for k in sparql_names
                        if k.startswith(tkn_low)]
@@ -222,6 +222,7 @@ class SparqlKernel(Kernel):
                     'cursor_start': start,
                     'cursor_end': start+len(token),
                     'matches': matches}
+
 
 # -----------------------------------------------------------------
 

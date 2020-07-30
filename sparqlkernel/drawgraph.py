@@ -3,7 +3,7 @@
 Convert an RDF graph into an image for displaying in the notebook, via GraphViz
 It has two parts:
   - conversion from rdf into dot language. Code based in rdflib.utils.rdf2dot
-  - rendering of the dot graph into an image. Code based on 
+  - rendering of the dot graph into an image. Code based on
     ipython-hierarchymagic, which in turn bases it from Sphinx
     See https://github.com/tkf/ipython-hierarchymagic
 
@@ -101,21 +101,21 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import errno
 import base64
-import collections
 import re
 from io import StringIO
 
-from IPython.core.display import display_png, display_svg
-import rdflib.tools.rdf2dot as r2d
 import rdflib
 
 from .utils import escape
+
+import logging
+LOG = logging.getLogger(__name__)
 
 # ------------------------------------------------------------------------
 
 LABEL_PROPERTIES = [
     rdflib.RDFS.label,
-    rdflib.URIRef('http://schema.org/name'), 
+    rdflib.URIRef('http://schema.org/name'),
     rdflib.URIRef('http://www.w3.org/2000/01/rdf-schema#label'),
     rdflib.URIRef('http://www.w3.org/2004/02/skos/core#prefLabel'),
     rdflib.URIRef("http://purl.org/dc/elements/1.1/title"),
@@ -128,48 +128,51 @@ LABEL_PROPERTIES = [
 
 
 def label(x, gr, preferred_languages=None):
-    """
-      @param x : graph entity
+    '''
+      @param x: graph entity
       @param gr (Graph): RDF graph
-      @param preferred_languages (iterable)
+      @param preferred_languages (iterable): list of preferred language codes for
+        the labels.
 
     Return the best available label in the graph for the passed entity.
     If a set of preferred languages is given, try them in order. If none is
     found, an arbitrary language will be chosen
-    """
+    '''
     # Find all labels & their language
-    labels = { l.language : l
-               for labelProp in LABEL_PROPERTIES
-               for l in gr.objects(x,labelProp) }
+    labels = {l.language: l
+              for labelProp in LABEL_PROPERTIES
+              for l in gr.objects(x, labelProp)}
+    #LOG.debug("LABELS %s %s", labels, preferred_languages)
+    #return repr(preferred_languages) + repr(labels)
     if labels:
-        #return repr(preferred_languages) + repr(labels)
-        #return u'|'.join(preferred_languages) +  u' -> ' + u'/'.join( u'{}:{}'.format(*i) for i in labels.items() )
+        # Search the preferred language
         if preferred_languages is not None:
             for l in preferred_languages:
                 if l in labels:
                     return labels[l]
-        return labels.itervalues().next()
+        # If not found, return an arbitrary language
+        return labels.popitem()[1]
 
     # No labels available. Try to generate a QNAME, or else, the string itself
     try:
-        return gr.namespace_manager.compute_qname(x)[2].replace('_',' ')
-    except:
+        return gr.namespace_manager.compute_qname(x)[2].replace('_', ' ')
+    except Exception:
         # Attempt to extract the trailing part of an URI
-        m = re.search( '([^/]+)$', x )
-        return m.group(1).replace('_',' ') if m else x
+        m = re.search('([^/]+)$', x)
+        return m.group(1).replace('_', ' ') if m else x
 
 
 
-def rdf2dot( g, stream, opts={} ):
-    """
+def rdf2dot(g, stream, opts={}):
+    '''
     Convert the RDF graph to DOT
     Write the dot output to the stream
-    """
+    '''
+    LOG.debug("RDF2DOT: %s", opts)
 
-    accept_lang = set( opts.get('lang',[]) )
+    accept_lang = opts.get('lang', [])
     do_literal = opts.get('literal')
     nodes = {}
-    links = []
 
     def node_id(x):
         if x not in nodes:
@@ -180,18 +183,18 @@ def rdf2dot( g, stream, opts={} ):
         try:
             q = g.compute_qname(x)
             return q[0] + ":" + q[2]
-        except:
+        except Exception:
             return x
 
-    def accept( node ):
-        if isinstance( node, (rdflib.URIRef,rdflib.BNode) ):
+    def accept(node):
+        if isinstance(node, (rdflib.URIRef, rdflib.BNode)):
             return True
         if not do_literal:
             return False
         return (not accept_lang) or (node.language in accept_lang)
 
 
-    stream.write( u'digraph { \n node [ fontname="DejaVu Sans,Tahoma,Geneva,sans-serif" ] ; \n' )
+    stream.write(u'digraph { \n node [ fontname="DejaVu Sans,Tahoma,Geneva,sans-serif" ] ; \n')
 
     # Write all edges. In the process make a list of all nodes
     for s, p, o in g:
@@ -209,25 +212,24 @@ def rdf2dot( g, stream, opts={} ):
         on = node_id(o)
 
         # add the link
-        q = qname(p,g)
+        q = qname(p, g)
         if isinstance(p, rdflib.URIRef):
-            opstr = u'\t%s -> %s [ arrowhead="open", color="#9FC9E560", fontsize=9, fontcolor="#204080", label="%s", href="%s", target="_other" ] ;\n' % (sn,on,q,p)
+            opstr = u'\t%s -> %s [ arrowhead="open", color="#9FC9E560", fontsize=9, fontcolor="#204080", label="%s", href="%s", target="_other" ] ;\n' % (sn, on, q, p)
         else:
-            opstr = u'\t%s -> %s [ arrowhead="open", color="#9FC9E560", fontsize=9, fontcolor="#204080", label="%s" ] ;\n'%(sn,on,q)
-        stream.write( opstr )
+            opstr = u'\t%s -> %s [ arrowhead="open", color="#9FC9E560", fontsize=9, fontcolor="#204080", label="%s" ] ;\n' % (sn, on, q)
+        stream.write(opstr)
 
     # Write all nodes
     for u, n in nodes.items():
-        lbl = escape( label(u,g,accept_lang), True )
+        lbl = escape(label(u, g, accept_lang), True)
         if isinstance(u, rdflib.URIRef):
-            opstr = u'%s [ shape=none, fontsize=10, fontcolor=%s, label="%s", href="%s", target=_other ] \n' % (n, 'blue', lbl, u )
+            opstr = u'%s [ shape=none, fontsize=10, fontcolor=%s, label="%s", href="%s", target=_other ] \n' % (n, 'blue', lbl, u)
         else:
-            opstr = u'%s [ shape=none, fontsize=10, fontcolor=%s, label="%s" ] \n' % (n, 'black', lbl )
-        stream.write( u"# %s %s\n" % (u, n) )
-        stream.write( opstr )
+            opstr = u'%s [ shape=none, fontsize=10, fontcolor=%s, label="%s" ] \n' % (n, 'black', lbl)
+        stream.write(u"# %s %s\n" % (u, n))
+        stream.write(opstr)
 
     stream.write(u'}\n')
-
 
 
 # ------------------------------------------------------------------------
@@ -236,13 +238,16 @@ EPIPE  = getattr(errno, 'EPIPE', 0)
 EINVAL = getattr(errno, 'EINVAL', 0)
 
 
-def run_dot( code, fmt='svg', gv_options=[], **kwargs ):
-
+def run_dot(code, fmt='svg', gv_options=[], **kwargs):
+    '''
+    Run GraphViz on the buffer holding the graph
+    '''
+    LOG.debug("rundot fmt=%s options=%s", fmt, gv_options)
     # mostly copied from sphinx.ext.graphviz.render_dot
     import os
     from subprocess import Popen, PIPE
 
-    dot_args = [ kwargs.get('prg','dot') ] + gv_options + ['-T', fmt ]
+    dot_args = [kwargs.get('prg', 'dot')] + gv_options + ['-T', fmt]
     if os.name == 'nt':
         # Avoid opening shell window.
         # * https://github.com/tkf/ipython-hierarchymagic/issues/1
@@ -278,34 +283,34 @@ def run_dot( code, fmt='svg', gv_options=[], **kwargs ):
 # ------------------------------------------------------------------------
 
 
-def draw_graph( g, fmt='svg', prg='dot', options={} ):
-    """
+def draw_graph(g, fmt='svg', prg='dot', options={}):
+    '''
     Draw an RDF graph as an image
-    """
+    '''
     # Convert RDF to Graphviz
     buf = StringIO()
-    rdf2dot( g, buf, options )
+    rdf2dot(g, buf, options)
 
-    gv_options = options.get('graphviz',[])
+    gv_options = options.get('graphviz', [])
     if fmt == 'png':
-        gv_options += [ '-Gdpi=220', '-Gsize=25,10!' ]
-        metadata = { "width": 5500, "height": 2200, "unconfined" : True }
+        gv_options += ['-Gdpi=220', '-Gsize=25,10!']
+        metadata = {"width": 5500, "height": 2200, "unconfined": True}
 
     #import codecs
     #with codecs.open('/tmp/sparqlkernel-img.dot','w',encoding='utf-8') as f:
     #    f.write( buf.getvalue() )
-    
+
     # Now use Graphviz to generate the graph
-    image = run_dot( buf.getvalue(), fmt=fmt, options=gv_options, prg=prg )
+    image = run_dot(buf.getvalue(), fmt=fmt, options=gv_options, prg=prg)
 
     #with open('/tmp/sparqlkernel-img.'+fmt,'w') as f:
     #    f.write( image )
 
     # Return it
     if fmt == 'png':
-        return { 'image/png' : base64.b64encode(image).decode('ascii') }, \
-               { "image/png" : metadata }
+        return {'image/png': base64.b64encode(image).decode('ascii')}, \
+               {'image/png': metadata}
     elif fmt == 'svg':
-        return { 'image/svg+xml' : image.decode('utf-8').replace('<svg','<svg class="unconfined"',1) }, \
-               { "unconfined" : True }
-
+        img = image.decode('utf-8').replace('<svg', '<svg class="unconfined"', 1)
+        return {'image/svg+xml': img}, \
+               {'unconfined': True}

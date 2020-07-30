@@ -12,7 +12,7 @@ Requirements
 ------------
 
 The kernel has only been tried with Jupyter 4.x. It works with Python 2.7 and
-Python 3 (tested with Python 3.5).
+Python 3 (tested with Python 3.6).
 
 The above mentioned `SPARQLWrapper`_ & `rdflib`_ Python packages are required
 dependencies (they are marked as such, so they will automatically be installed
@@ -82,142 +82,44 @@ keywords have contextual help, as of now.
 It also installs menu entries in the HELP menu pointing to SPARQL documentation.
 
 
-Output format
--------------
+Execution
+---------
 
 The query results are displayed in the notebook as cell results; there are a 
 number of choices for the display format, controlled via magics (see below).
 
-Each SPARQL query is immediately launched, once the results are printed out it 
+Each SPARQL query is immediately launched, and once the results are printed out it 
 is forgotten. Cells are thus completely independent from each other (except for
 magics, which are persistent).
+
+When a notebook is fully executed (e.g. *Cells* -> *Run all*), all code cells
+in the notebook, and hence all queries, are executed in sequence. To avoid
+execution of any particular cell, its type can be changed to RAW cell instead of
+CODE cell (in *Cells* -> *Cell Type* -> *Raw*).
 
 
 Magics
 ------
 
-A number of line magics (lines starting with ``%``) can be used to control the 
-kernel behaviour. These line magics must be placed at the start of the cell, 
-and there can be more than one per cell.
-Valid combinations are thus:
-
-* a cell with only a SPARQL query,
-* a cell consisting only of magics,
-* and a cell containing both magics and then a SPARQL query (but after the 
-  first SPARQL keyword the cell is assumed to be in SPARQL mode, and line 
-  magics will *not* be recognized as such).
-
-Comment lines (lines starting with ``#``) can be freely interspersed between 
-line magics or SPARQL queries.
-
-Magics also feature autocompletion and contextual help. Furthermore, there is 
-a special magic ``%lsmagics``; when executed on a cell it will output the list 
-of all currently available magics. The same info can be obtained by requesting
-contextual help (i.e. Shift-TAB) on a line containing only a percent sign.
-
-A few of the most relevant magics are explained in the following sections. The 
-complete set is always available in the notebook, by using the help or 
-autocompletion features.
+The kernel behaviour can be controlled by the use of line magics (lines
+starting with ``%``). See the `magics documentation`_ for details.
 
 
-``%endpoint``
-.............
+Logging
+-------
 
-This magic is special in the sense that it is compulsory: there needs to be an 
-endpoint defined *before* the first SPARQL query is launched, otherwise the 
-query will fail.
+Settings defined by magics are always printed out in the cell result area
+(in red type) to inform what are the conditions in which a query is
+sent. Additionally, it is possible write logs that contain additional debug
+information.
 
-Its syntax is::
+The logging level is controlled by the ``%log`` magic. All logs are written to
+a single file, with the name ``sparqlkernel.log``. Its default place is the
+machine temporal directory (e.g. ``/tmp`` in Linux, or ``C:/TMP`` in Windows).
+There are two possibilities to change its location:
 
-    %endpoint <url>
-
-and it simply defines the SPARQL endpoint for all subsequent queries. 
-It remains active until superseded by another ``%endpoint`` magic.
-
-
-``%qparam``
-...........
-
-Define a custom additional parameter to be sent with every query. Its syntax
-is::
-
-  %qparam <name> <value>
-
-and it will add the ``name=value`` parameter to every subsequent query (it can
-be used e.g. to send API keys, or any parameter required by the endpoint).
-
-Any number of parameters can be defined; they will all be added to the queries
-executed after their definitions. To remove a parameter, use a line with no
-value::
-
-  %qparam <name>
-
-
-``%header``
-............
-Adds a certain header to each sparql queries. This can be used to set some 
-(potentially non SPARQL) command in the query. For instance virtuoso endpoints 
-accept the _define_ keyword which can be used to trigger the server reasoner.
-
-
-
-``%auth``
-...........
-
-Define HTTP authentication to send to the backend. Its syntax is::
-
-   %auth (basic | digest) <username> <password>
-
-Once defined, it will be sent to the backend on every subsequent query. To
-remove a defined authentication, just use::
-
-   %auth none
-
-  
-``%format``
-............
-
-Sets the data format requested to the SPARQL endpoint::
-
-    %format JSON | XML | N3  | any | default
-
-where:
-
-* ``JSON`` requests *application/sparql-results+json* format
-* ``XML`` requests *application/sparql-results+xml* format
-* ``N3`` requests the endpoint to provide results in *text/rdf+n3* format
-* ``any`` lets the endpoint return any format it pleases (note that if the
-  returned format is not JSON, XML or N3, it will be rendered as raw text)
-* ``default`` selects a default format depending on the requested SPARQL
-  operation (N3 for ``DESCRIBE`` and ``CONSTRUCT``, JSON for ``SELECT``, *any*
-  for the rest)
-
-
-``%display``
-............
-
-Sets the output rendering shape::
-
-    %display raw | table [withtypes] | diagram [svg|png] [withliterals]
-
-There are three possible display formats:
-
-* ``raw`` outputs the literal text returned by the SPARQL endpoint, in the
-  format that was requested (see ``%format`` magic)
-* ``table`` generates a table with the result. The optional ``withtypes``
-  modifier adds to each column an additional column that shows the data
-  type for each value
-* ``diagram`` takes the RDF graph returned (makes sense only for N3 result
-  format) and generates an image with a rendering of the graph. For it to
-  work, the ``dot`` program from GraphViz must be available in the search path.
-  The modifier selects the image format. Default is SVG, which usually works
-  much better (PNG quality is lower, image size is fixed and cannot contain
-  hyperlinks).
-
-Default is ``table``. Note that if the result format is not a supported format
-for a table or diagram representation (i.e. it is not JSON/XML or N3), then raw
-format will be used.
-
+* When installing the kernel, use the ``--logdir <dir>`` option
+* Before starting Jupyter, define the ``LOGDIR`` environment variable.
 
 
 
@@ -227,3 +129,4 @@ format will be used.
 .. _rdflib: https://github.com/RDFLib/rdflib
 .. _Graphviz: http://www.graphviz.org/
 .. _online Notebook viewer: http://nbviewer.jupyter.org/github/paulovn/sparql-kernel/blob/master/examples/
+.. _magics documentation: doc/magics.rst

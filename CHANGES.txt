@@ -1,3 +1,17 @@
+v. 1.3.0
+* improved error messages on HTTP errors
+* strip whitespace in all lines, including comment lines (@gpotdevin)
+* added new magics: %method (@alexisdimi), %http_header, %load
+* added new option `none` to %format magic, for manual control of format request
+* can read `%auth` parameters from environment variables
+* do not print out password for `%auth` magic
+* magic processing split out to magics.py
+
+v. 1.2.1
+* bugfix (@blake-regalia, @alexisdimi): in label selection for graph nodes, itervalues() does not exist in python3
+* keep order in preferred languages
+* PEP8 reformatting
+
 v. 1.2.0
 * added %header magic (by gpotdevin)
 * fixed JSON format for raw format (reported by BoPeng)

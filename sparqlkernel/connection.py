@@ -1,6 +1,6 @@
 """
 The class used to manage the connection to SPARQL endpoint: send queries and
-format results for notebook display. Also process all the defined magics
+format results for notebook display.
 """
 
 from __future__ import print_function
@@ -12,18 +12,21 @@ import json
 import datetime
 import logging
 import os.path
+import urllib
+from operator import itemgetter
 
 from IPython.utils.tokenutil import token_at_cursor, line_at_cursor
 from traitlets import List
 
 import SPARQLWrapper
+from SPARQLWrapper.KeyCaseInsensitiveDict import KeyCaseInsensitiveDict
 from SPARQLWrapper.SPARQLExceptions import SPARQLWrapperException
-from rdflib import ConjunctiveGraph, URIRef, Literal
+from SPARQLWrapper.Wrapper import _SPARQL_XML, _SPARQL_JSON
+from rdflib import ConjunctiveGraph, Literal
 from rdflib.parser import StringInputSource
 
-from .constants import __version__, LANGUAGE, DEFAULT_TEXT_LANG
+from .constants import DEFAULT_TEXT_LANG
 from .utils import is_collection, KrnlException, div, escape
-from .language import sparql_names, sparql_help
 from .drawgraph import draw_graph
 
 # IPython.core.display.HTML
@@ -33,52 +36,31 @@ if PY3:
     unicode = str
     touc = str
 else:
-    touc = lambda x : str(x).decode('utf-8', 'replace')
+    touc = lambda x: str(x).decode('utf-8', 'replace')
 
 
 # Valid mime types in the SPARQL response (depending on what we requested)
-mime_type = { SPARQLWrapper.JSON:   set(['application/sparql-results+json',
-                                         'text/javascript']),
-              SPARQLWrapper.N3:     set(['text/rdf+n3', 'text/turtle', 
-                                         'application/x-turtle',
-                                         'application/rdf+xml']),
-              SPARQLWrapper.RDF:    set(['text/rdf', 'application/rdf+xml']),
-              SPARQLWrapper.TURTLE: set(['text/turtle', 'application/x-turtle']),
-              SPARQLWrapper.XML:    set(['application/sparql-results+xml']),
+mime_type = {SPARQLWrapper.JSON:   set(_SPARQL_JSON),
+             SPARQLWrapper.N3:     set(['text/rdf+n3', 'text/turtle', 
+                                        'application/x-turtle',
+                                        'application/rdf+xml']),
+             SPARQLWrapper.RDF:    set(['text/rdf', 'application/rdf+xml']),
+             SPARQLWrapper.TURTLE: set(['text/turtle', 'application/x-turtle']),
+             SPARQLWrapper.XML:    set(_SPARQL_XML)
 }
 
 # ----------------------------------------------------------------------
 
-# The list of implemented magics with their help, as a pair [param,help-text]
-magics = {
-    '%lsmagics': ['', 'list all magics'], 
-    '%endpoint': ['<url>', 'set SPARQL endpoint. **REQUIRED**'],
-    '%auth':     ['(basic|digest|none) <username> <passwd>', 'send HTTP authentication'],
-    '%qparam':   ['<name> [<value>]', 'add (or delete) a persistent custom parameter to the endpoint query'],
-    '%header':   ['<string> | OFF', 'add a persistent header line before the query, or delete all defined headers'],
-    '%prefix':   ['<name> [<uri>]', 'set (or delete) a persistent URI prefix for all queries'],
-    '%graph':    ['<uri>', 'set default graph for the queries'],
-    '%format':   ['JSON | N3 | XML | any | default', 'set requested result format'],
-    '%display':  ['raw | table [withtypes] | diagram [svg|png] [withliterals]',
-                  'set display format'],
-    '%lang':     ['<lang> [...] | default | all',
-                  'language(s) preferred for labels'],
-    '%show':     ['<n> | all',
-                    'maximum number of shown results'],
-    '%outfile':  ['<filename> | NONE', 'save raw output to a file (use "%d" in name to add cell number, "NONE" to cancel saving)'],
-    '%log':      ['critical | error | warning | info | debug',
-                  'set logging level'],
-}
-
-# The full list of all magics
-magic_help = ('Available magics:\n' +
-              '  '.join(sorted(magics.keys())) +
-              '\n\n' +
-              '\n'.join(('{0} {1} : {2}'.format(k, *magics[k])
-                         for k in sorted(magics))))
-
-
-# ----------------------------------------------------------------------
+def cleanhtml(raw_html, ctype):
+    '''
+    Rough cleanup of HTML code
+    '''
+    m = re.search(r'charset\s*=\s*(\S+)', ctype)
+    charset = m.group(1) if m else 'utf-8'
+    html = raw_html.decode(charset)
+    html = re.sub(r'<style>.+</style>', '', html, flags=re.S)
+    html = re.sub(r'<.*?>', '', html, flags=re.S)
+    return re.sub(r'[\n]+', '\n', html, flags=re.S)
 
 
 def html_elem(e, ct, withtype=False):
@@ -317,8 +299,8 @@ def render_graph(result, cfg, **kwargs):
                       'application/x-turtle': 'turtle',
                       'text/turtle': 'turtle',
                       'application/rdf+xml': 'xml',
-                      'text/rdf': 'xml',
-                      'application/rdf+xml': 'xml'}
+                      'text/rdf': 'xml'
+                      }
 
 
     try:
@@ -360,10 +342,15 @@ def render_graph(result, cfg, **kwargs):
 
 class CfgStruct:
     """
-    A simple class containing a bunch of fields
+    A simple class containing a bunch of fields. Equivalent to Python3
+    SimpleNamespace
     """
     def __init__(self, **entries):
         self.__dict__.update(entries)
+
+    def __repr__(self):
+        return '<' + ' '.join('{}={!r}'.format(*kv)
+                              for kv in self.__dict__.items()) + '>'
 
 
 # ----------------------------------------------------------------------
@@ -378,173 +365,20 @@ class SparqlConnection(object):
         self.srv = None
         self.log.info("START")
         self.cfg = CfgStruct(hdr=[], pfx={}, lmt=20, fmt=None, out=None, aut=None,
-                             grh=None, dis='table', typ=False, lan=[], par={})
-
-    def magic(self, line):
-        """
-        Read and process magics
-          @param line (str): the full line containing a magic
-          @return (list): a tuple (output-message,css-class), where
-            the output message can be a single string or a list (containing
-            a Python format string and its arguments)
-        """
-        # The %lsmagic has no parameters
-        if line.startswith('%lsmagic'):
-            return magic_help, 'magic-help'
-
-        # Split line into command & parameters
-        try:
-            cmd, param = line.split(None, 1)
-        except ValueError:
-            raise KrnlException("invalid magic: {}", line)
-        cmd = cmd[1:].lower()
-
-        # Process each magic
-        if cmd == 'endpoint':
-
-            self.srv = SPARQLWrapper.SPARQLWrapper(param)
-            return ['Endpoint set to: {}', param], 'magic'
-
-        elif cmd == 'auth':
-
-            auth_data = param.split(None, 2)
-            if auth_data[0].lower() == 'none':
-                self.cfg.aut = None
-                return ['HTTP authentication: None'], 'magic'
-            if auth_data and len(auth_data) != 3:
-                raise KrnlException("invalid %auth magic")
-            self.cfg.aut = auth_data
-            return ['HTTP authentication: {}', auth_data], 'magic'
-
-        elif cmd == 'qparam':
-
-            v = param.split(None, 1)
-            if len(v) == 0:
-                raise KrnlException("missing %qparam name")
-            elif len(v) == 1:
-                self.cfg.par.pop(v[0],None)
-                return ['Param deleted: {}', v[0]]
-            else:
-                self.cfg.par[v[0]] = v[1]
-                return ['Param set: {} = {}'] + v, 'magic'
-
-        elif cmd == 'prefix':
-
-            v = param.split(None, 1)
-            if len(v) == 0:
-                raise KrnlException("missing %prefix value")
-            elif len(v) == 1:
-                self.cfg.pfx.pop(v[0], None)
-                return ['Prefix deleted: {}', v[0]], 'magic'
-            else:
-                self.cfg.pfx[v[0]] = v[1]
-                return ['Prefix set: {} = {}'] + v, 'magic'
-
-        elif cmd == 'show':
-
-            if param == 'all':
-                self.cfg.lmt = None
-            else:
-                try:
-                    self.cfg.lmt = int(param)
-                except ValueError as e:
-                    raise KrnlException("invalid result limit: {}", e)
-            sz = self.cfg.lmt if self.cfg.lmt is not None else 'unlimited'
-            return ['Result maximum size: {}', sz], 'magic'
-
-        elif cmd == 'format':
-
-            fmt_list = {'JSON': SPARQLWrapper.JSON, 
-                        'N3': SPARQLWrapper.N3,
-                        'XML': SPARQLWrapper.XML,
-                        'DEFAULT': None,
-                        'ANY': False}
-            try:
-                fmt = param.upper()
-                self.cfg.fmt = fmt_list[fmt]
-            except KeyError:
-                raise KrnlException('unsupported format: {}\nSupported formats are: {!s}', param, list(fmt_list.keys()))
-            return ['Return format: {}', fmt], 'magic'
-
-        elif cmd == 'lang':
-
-            self.cfg.lan = DEFAULT_TEXT_LANG if param == 'default' else [] if param=='all' else param.split()
-            return ['Label preferred languages: {}', self.cfg.lan], 'magic'
-
-        elif cmd in 'graph':
-
-            self.cfg.grh = param if param else None
-            return ['Default graph: {}', param if param else 'None'], 'magic'
-
-        elif cmd == 'display':
-
-            v = param.lower().split(None, 2)
-            if len(v) == 0 or v[0] not in ('table', 'raw', 'graph', 'diagram'):
-                raise KrnlException('invalid %display command: {}', param)
-
-            msg_extra = ''
-            if v[0] not in ('diagram', 'graph'):
-                self.cfg.dis = v[0]
-                self.cfg.typ = len(v) > 1 and v[1].startswith('withtype')
-                if self.cfg.typ and self.cfg.dis == 'table':
-                    msg_extra = '\nShow Types: on'
-            elif len(v) == 1:   # graph format, defaults
-                self.cfg.dis = ['svg']
-            else:               # graph format, with options
-                if v[1] not in ('png', 'svg'):
-                    raise KrnlException('invalid graph format: {}', param)
-                if len(v) > 2:
-                    if not v[2].startswith('withlit'):
-                        raise KrnlException('invalid graph option: {}', param)
-                    msg_extra = '\nShow literals: on'
-                self.cfg.dis = v[1:3]
-
-            display = self.cfg.dis[0] if is_collection(self.cfg.dis) else self.cfg.dis
-            return ['Display: {}{}', display, msg_extra], 'magic'
-
-        elif cmd == 'outfile':
-
-            if param == 'NONE':
-                self.cfg.out = None
-                return ['no output file'], 'magic'
-            else:
-                self.cfg.out = param
-                return ['Output file: {}', os.path.abspath(param)], 'magic'
-
-        elif cmd == 'log':
-
-            if not param:
-                raise KrnlException('missing log level')
-            try:
-                lev = param.upper()
-                parent_logger = logging.getLogger(__name__.rsplit('.', 1)[0])
-                parent_logger.setLevel(lev)
-                return ("Logging set to {}", lev), 'magic'
-            except ValueError:
-                raise KrnlException('unknown log level: {}', param)
-
-        elif cmd == 'header':
-
-            if param.upper() == 'OFF':
-                num = len(self.cfg.hdr)
-                self.cfg.hdr = []
-                return ['All headers deleted ({})', num], 'magic'
-            else:
-                if param in self.cfg.hdr:
-                    return ['Header skipped (repeated)'], 'magic'
-                self.cfg.hdr.append(param)
-                return ['Header added: {}', param], 'magic'
-
-        else:
-            raise KrnlException("magic not found: {}", cmd)
+                             grh=None, dis='table', typ=False, lan=[], par={},
+                             mth='GET', hhr=KeyCaseInsensitiveDict(), ept=None)
 
 
     def query(self, query, num=0, silent=False):
         """
         Launch an SPARQL query, process & convert results and return them
         """
-        if self.srv is None:
+        self.log.debug("CONFIG: %s", self.cfg)
+        # Create server object, if needed
+        if self.cfg.ept is None:
             raise KrnlException('no endpoint defined')
+        elif self.srv is None or self.srv.endpoint != self.cfg.ept:
+            self.srv = SPARQLWrapper.SPARQLWrapper(self.cfg.ept)
 
         # Add to the query all predefined SPARQL prefixes
         if self.cfg.pfx:
@@ -561,7 +395,10 @@ class SparqlConnection(object):
             self.log.debug("\n%50s%s", query, '...' if len(query) > 50 else '')
 
         # Select requested format
-        if self.cfg.fmt is not None:
+        self.srv.setOnlyConneg(self.cfg.fmt is None)
+        if self.cfg.fmt in (False, None):
+            fmt_req = False
+        elif self.cfg.fmt is not True:
             fmt_req = self.cfg.fmt
         elif re.search(r'\bselect\b', query, re.I):
             fmt_req = SPARQLWrapper.JSON
@@ -572,18 +409,25 @@ class SparqlConnection(object):
 
         # Set the query
         self.srv.resetQuery()
+        self.srv.setMethod(self.cfg.mth)
+        self.log.debug(u'method=%s', self.cfg.mth)
         if self.cfg.aut:
             self.srv.setHTTPAuth(self.cfg.aut[0])
             self.srv.setCredentials(*self.cfg.aut[1:])
         else:
             self.srv.setCredentials(None, None)
-        self.log.debug(u'request-format: %s  display: %s', fmt_req, self.cfg.dis)
+        self.log.debug(u'request-format=%s  display=%s', fmt_req, self.cfg.dis)
         if fmt_req:
             self.srv.setReturnFormat(fmt_req)
         if self.cfg.grh:
             self.srv.addParameter("default-graph-uri", self.cfg.grh)
         for p in self.cfg.par.items():
+            self.log.debug(u'qparameter=%s', p)
             self.srv.addParameter(*p)
+        for n, v in self.cfg.hhr.items():
+            self.log.debug(u'HTTP Header: %s=%s', n, v)
+            self.srv.addCustomHttpHeader(n, v)
+
         self.srv.setQuery(query)
 
         if not silent or self.cfg.out:
@@ -601,7 +445,7 @@ class SparqlConnection(object):
                 fmt_got = info['content-type'].split(';')[0] if 'content-type' in info else None
 
                 # Check we received a MIME type according to what we requested
-                if fmt_req and fmt_got not in mime_type[fmt_req]:
+                if fmt_req not in (True, False, None) and fmt_got not in mime_type[fmt_req]:
                     raise KrnlException(u'Unexpected response format: {} (requested: {})', fmt_got, fmt_req)
 
                 # Get the result
@@ -611,6 +455,13 @@ class SparqlConnection(object):
                 raise
             except SPARQLWrapperException as e:
                 raise KrnlException(u'SPARQL error: {}', touc(e))
+            except urllib.error.HTTPError as e:
+                msg = e.read()
+                ctype = e.headers.get('Content-Type', 'text/plain')
+                if ctype.startswith('text/html'):
+                    msg = cleanhtml(msg, ctype)
+                raise KrnlException(u'HTTP error: {} {}: {}', e.code, e.reason,
+                                    msg)
             except Exception as e:
                 raise KrnlException(u'Query processing error: {!s}', e)
 

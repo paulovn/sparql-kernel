@@ -31,14 +31,14 @@ sparql_keywords = [
     'SERVICE'
 ]
 
-sparql_operators = [ 'bound', 'isIRI', 'isBlank', 'isLiteral',
-                     'str', 'lang', 'datatype', 'sameTerm', 
-                     'langMatches', 'regex',  ]
+sparql_operators = ['bound', 'isIRI', 'isBlank', 'isLiteral',
+                    'str', 'lang', 'datatype', 'sameTerm',
+                    'langMatches', 'regex']
 
 
 # All SPARQL reserved words
 sparql_names = dict( ((k.lower(),k) for k in 
-                      chain.from_iterable( (sparql_keywords,sparql_operators))
+                      chain.from_iterable( (sparql_keywords, sparql_operators))
                   ) )
 
 # ------------------------------------------------------------------------
