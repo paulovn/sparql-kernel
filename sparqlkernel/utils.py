@@ -35,6 +35,9 @@ def escape(x, lb=False):
     double quotes)
     Optionally also insert a linebreak if the string is too long
     """
+    # Return an empty string if x is None
+    if x is None:
+        return ""
     # Insert a linebreak? Roughly around the middle of the string
     if lb:
         tl = len(x)
