@@ -197,14 +197,9 @@ class SparqlKernelInstall( InstallKernelSpec ):
 
         # Install the custom css
         self.log.info('Installing CSS')
-        if self.user:
-            # Use the ~/.jupyter/custom dir
-            import jupyter_core
-            destd = os.path.join( jupyter_core.paths.jupyter_config_dir(),'custom')
-        else:
-            # Use the system custom dir
-            import notebook
-            destd = os.path.join( notebook.DEFAULT_STATIC_FILES_PATH, 'custom' )
+        # Use the ~/.jupyter/custom dir
+        import jupyter_core
+        destd = os.path.join( jupyter_core.paths.jupyter_config_dir(),'custom')
 
         self.log.info('Installing CSS into %s', destd)
         install_custom_css( destd, PKGNAME )
@@ -237,8 +232,7 @@ class SparqlKernelRemove( RemoveKernelSpec ):
         self.log.info('Removing CSS')
         import jupyter_core
         import notebook
-        cssd = ( os.path.join(jupyter_core.paths.jupyter_config_dir(),'custom'),
-                 os.path.join(notebook.DEFAULT_STATIC_FILES_PATH,'custom') )
+        cssd = ( os.path.join(jupyter_core.paths.jupyter_config_dir(),'custom') )
         for destd in cssd:
             if remove_custom_css( destd, PKGNAME ):
                 self.log.info('Removed CSS from %s', destd)
